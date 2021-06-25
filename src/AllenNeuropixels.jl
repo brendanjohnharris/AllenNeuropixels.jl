@@ -4,6 +4,7 @@ using Conda
 using DataFrames
 using Dates
 using TimeZones
+using CSV
 
 
 const allensdk = PyNULL()
@@ -20,39 +21,15 @@ function __init__()
     copy!(brain_observatory, pyimport_conda("allensdk.brain_observatory", "allendsk"))
     copy!(ecephys, pyimport_conda("allensdk.brain_observatory.ecephys", "allendsk"))
     copy!(ecephys_project_cache, pyimport_conda("allensdk.brain_observatory.ecephys.ecephys_project_cache", "allendsk"))
-    ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=manifestdir)
+    ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=manifestpath)
 end
 
 const datadir = joinpath(pkgdir(AllenNeuropixels), "data/")
-const manifestdir = joinpath(datadir, "manifest.json")
+const manifestpath = joinpath(datadir, "manifest.json")
 
 
-function convertdataframe(pdf, types)
-    nc = 1:length(pdf.columns)
-    nr = 1:length(pdf)
-    columns = Symbol.(convert.((String,), getindex.((pdf.columns,), nc)))
-    rows =  (convert.((Int,), getindex.((pdf.index,), nr)))
-    df = DataFrame()
-    df.id = rows
-    M = pdf.values[:, :]
-    for c ∈ nc
-        v = Vector{types[c]}(undef, length(nr))
-        println(c)
-        for r ∈ nr
-            if (try
-                    isnan(convert(Float64, M[r, c]))
-                catch
-                    false
-                end) && !(M[r, c] isa Float64)
-                v = convert(Vector{Any}, v) # Prolly slow
-                v[r] = convert(Float64, M[r, c])
-            else
-                types[c] <: AbstractVector ? v[r] = collect(M[r, c]) : v[r] = convert(types[c], M[r, c])
-            end
-        end
-        df[!, columns[c]] = v
-    end
-    return df
+function loaddataframe(file, dir=datadir)
+    df = CSV.File(abspath(dir, file)) |> DataFrame
 end
 export convertdataframe
 
