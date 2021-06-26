@@ -1,5 +1,6 @@
 module AllenNeuropixels
 using PyCall
+using Preferences
 using Conda
 using DataFrames
 using Dates
@@ -15,27 +16,35 @@ export allensdk, brain_observatory, ecephys, ecephys_project_cache
 
 function __init__()
     Conda.pip_interop(true)
-    #Conda.update()
+    Conda.update() # You might need to delete the .julia/conda folder and rebuild python; allensdk has some tricky compatibility requirements.
     Conda.pip("install", "allensdk")
-    copy!(allensdk, pyimport_conda("allensdk", "allendsk"))
-    copy!(brain_observatory, pyimport_conda("allensdk.brain_observatory", "allendsk"))
-    copy!(ecephys, pyimport_conda("allensdk.brain_observatory.ecephys", "allendsk"))
-    copy!(ecephys_project_cache, pyimport_conda("allensdk.brain_observatory.ecephys.ecephys_project_cache", "allendsk"))
+    copy!(allensdk, pyimport("allensdk"))
+    copy!(brain_observatory, pyimport("allensdk.brain_observatory"))
+    copy!(ecephys, pyimport("allensdk.brain_observatory.ecephys"))
+    copy!(ecephys_project_cache, pyimport("allensdk.brain_observatory.ecephys.ecephys_project_cache"))
     ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=manifestpath)
 end
 
-const datadir = joinpath(pkgdir(AllenNeuropixels), "data/")
-const manifestpath = joinpath(datadir, "manifest.json")
+
+function setdatadir(datadir::String)
+    @set_preferences!("datadir" => datadir)
+    @info("New default datadir set; restart your Julia session for this change to take effect")
+end
+const datadir = @load_preference("datadir", joinpath(pkgdir(AllenNeuropixels), "data/"))
+
+function setmanifestpathr(manifestpath::String)
+    @set_preferences!("manifestpath" => manifestpath)
+    @info("New default manifestpath set; restart your Julia session for this change to take effect")
+end
+const manifestpath = @load_preference("manifestpath", joinpath(datadir, "manifest.json"))
 
 
 function loaddataframe(file, dir=datadir)
-    df = CSV.File(abspath(dir, file)) |> DataFrame
+    CSV.File(abspath(dir, file)) |> DataFrame
 end
 export convertdataframe
 
 
-
-include("./EcephysProject.jl")
 include("./EcephysCache.jl")
 
 
