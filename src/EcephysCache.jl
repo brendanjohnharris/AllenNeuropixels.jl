@@ -1,27 +1,27 @@
-function cache()
-    ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=manifestpath)
+function ecephyscache()
+    ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=ecephysmanifest)
 end
 
 # These will take a while to download
 function get_session_table()
     @info "Please wait, this can take a few seconds"
-    CSV.read(IOBuffer(cache().get_session_table().to_csv()), DataFrame);
+    CSV.read(IOBuffer(ecephyscache().get_session_table().to_csv()), DataFrame);
 end
 export get_session_table
 
 function get_probes()
-    CSV.read(IOBuffer(cache().get_probes().to_csv()), DataFrame);
+    CSV.read(IOBuffer(ecephyscache().get_probes().to_csv()), DataFrame);
 end
 export get_probes
 
 function get_channels()
-    CSV.read(IOBuffer(cache().get_channels().to_csv()), DataFrame);
+    CSV.read(IOBuffer(ecephyscache().get_channels().to_csv()), DataFrame);
 end
 export get_channels
 
 
 function get_units(; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
-    str = cache().get_units(filter_by_validity=filter_by_validity,
+    str = ecephyscache().get_units(filter_by_validity=filter_by_validity,
                             amplitude_cutoff_maximum=amplitude_cutoff_maximum,
                             presence_ratio_minimum=presence_ratio_minimum,
                             isi_violations_maximum=isi_violations_maximum).to_csv()
@@ -31,7 +31,7 @@ export get_units
 
 
 function get_unit_analysis_metrics_by_session_type(session_type; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5) # Yeah thats python
-    str = cache().get_unit_analysis_metrics_by_session_type(session_type,
+    str = ecephyscache().get_unit_analysis_metrics_by_session_type(session_type,
                             filter_by_validity=filter_by_validity,
                             amplitude_cutoff_maximum=amplitude_cutoff_maximum,
                             presence_ratio_minimum=presence_ratio_minimum,
@@ -58,7 +58,7 @@ export get_all_unit_metrics
 
 
 function get_session_data(session_id::Int; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
-    cache().get_session_data(session_id; filter_by_validity=filter_by_validity,
+    ecephyscache().get_session_data(session_id; filter_by_validity=filter_by_validity,
                             amplitude_cutoff_maximum=amplitude_cutoff_maximum,
                             presence_ratio_minimum=presence_ratio_minimum,
                             isi_violations_maximum=isi_violations_maximum)
@@ -69,11 +69,19 @@ export get_session_data
 abstract type AbstractSession end
 
 struct Session <: AbstractSession
-    pySession
+    pyObject
 end
 export Session
 Session(session_id::Int; kwargs...) = Session(get_session_data(session_id; kwargs...))
-getid(S::AbstractSession) = S.pySession.ecephys_session_id
-getprobes(S::AbstractSession) = CSV.read(IOBuffer(S.pySession.probes.to_csv()), DataFrame)
+getid(S::AbstractSession) = S.pyObject.ecephys_session_id
+getprobes(S::AbstractSession) = CSV.read(IOBuffer(S.pyObject.probes.to_csv()), DataFrame)
 getprobeids(S::AbstractSession) = getprobes(S)[!, :id]
-getlfp(S::AbstractSession, probeid::Int) = S.pySession.get_lfp(probeid)
+getchannels(S::AbstractSession) = CSV.read(IOBuffer(S.pyObject.channels.to_csv()), DataFrame)
+function getprobecoordinates(S::AbstractSession)
+    c = getchannels(S)
+    x = c[!, :anterior_posterior_ccf_coordinate]
+    y = c[!, :dorsal_ventral_ccf_coordinate]
+    z = c[!, :left_right_ccf_coordinate]
+    return (x, y, z)
+end
+

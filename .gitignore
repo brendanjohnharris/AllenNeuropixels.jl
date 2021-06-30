@@ -32,3 +32,4 @@ Manifest.toml
 
 # Data
 /data/
+*.html
