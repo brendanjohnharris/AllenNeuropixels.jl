@@ -1,7 +1,10 @@
 using WGLMakie
 using JSServe
 using Colors
-using CartesianBoxes
+using Meshing
+using MeshIO
+using GeometryBasics
+
 
 # This works best from Julia in the terminal, not in VSCode
 
@@ -27,18 +30,16 @@ function plotreferencevolume(S; dostructures = true, resolution=(1200, 800))
                                                 :ecephys_structure_acronym  => ByRow(x->x!=="grey"))
 
         ids = unique(channels[!, :ecephys_structure_id])
-        println(getstructuretreedepth.(ids))
         ids = ids[getstructuretreedepth.(ids) .< 9]
-        for id ∈ ids[5:10]
+        for id ∈ ids[8]
             try
                 mask, _ = getstructuremask(id)
-                mask = Array{Float16}(mask)
-                idxs = CartesianBoxes.boundingbox(rotatereferenceatlas(mask)[1:2:end, 1:2:end, 1:2:end])
-                tidxs = Tuple.(CartesianIndices(idxs))
-                xx, yy, zz = [unique([i[j] for i ∈ tidxs]) for j ∈ 1:3]
+                mask = Array{Float64}(rotatereferenceatlas(mask)[1:2:end, 1:2:end, 1:2:end])
+                mc_algo = NaiveSurfaceNets(iso=0, insidepositive=true)
+                m = GeometryBasics.Mesh(mask, mc_algo)
                 c = getstructurecolor(id)
-                maskgrad = :transparent => RGBA(c.r, c.b, c.g, 0.5)
-                volume!(s, coords[1][xx], coords[2][yy], coords[3][zz], rotatereferenceatlas(mask)[1:2:end, 1:2:end, 1:2:end][idxs]; algorithm=:mip, colorrange=extrema(mask), color=(c, 0.5), transparency=true)
+                [[(i[end] = -i[end]) for i ∈ x] for x ∈ m] # Need to reflect last coordinate
+                mesh!(s, m)#; color=(c, 0.5), transparency=true)
             catch y
                 @warn y
             end
@@ -64,7 +65,7 @@ function exportreferencevolume(S, file::String="plot.html")
         # make sure the Page setup code gets rendered as HTML
         show(io, MIME"text/html"(), Page(exportable=true, offline=true))
         # Then, you can just inline plots or whatever you want :)
-        show(io, MIME"text/html"(), plotreferencevolume(S, resolution=(2400, 1600)))
+        show(io, MIME"text/html"(), plotreferencevolume(S, resolution=(2400, 1600), dostructures=false))
         println(io, """
             </body>
         </html>
