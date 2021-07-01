@@ -6,6 +6,7 @@ using DataFrames
 using Dates
 using TimeZones
 using CSV
+using Requires
 
 
 const allensdk = PyNULL()
@@ -15,7 +16,7 @@ const ecephys_project_cache = PyNULL()
 const mouse_connectivity_cache = PyNULL()
 const ontologies_api = PyNULL()
 const reference_space_cache = PyNULL()
-export allensdk, brain_observatory, ecephys, ecephys_project_cache, mouse_connectivity_cache, ontolofies_api, reference_space_cache
+export allensdk, brain_observatory, ecephys, ecephys_project_cache, mouse_connectivity_cache, ontologies_api, reference_space_cache
 
 function __init__()
     Conda.pip_interop(true)
@@ -29,6 +30,8 @@ function __init__()
     copy!(ontologies_api, pyimport("allensdk.api.queries.ontologies_api"))
     copy!(reference_space_cache, pyimport("allensdk.core.reference_space_cache"))
     ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=ecephysmanifest)
+
+    @require WGLMakie="276b4fcb-3e11-5398-bf8b-a0c2d153d008" @eval using .Plots
 end
 
 
@@ -50,7 +53,7 @@ export convertdataframe
 include("./EcephysCache.jl")
 include("./LFP.jl")
 include("./MouseConnectivityCache.jl")
-include("./Plotting.jl")
+include("./AllenPlots/AllenPlots.jl")
 include("./Ontologies.jl")
 include("./ReferenceSpace.jl")
 
