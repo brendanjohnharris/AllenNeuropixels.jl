@@ -53,7 +53,7 @@ export convertdataframe
 include("./EcephysCache.jl")
 include("./LFP.jl")
 include("./MouseConnectivityCache.jl")
-include("./AllenPlots/AllenPlots.jl")
+include("./Plots/Plots.jl")
 include("./Ontologies.jl")
 include("./ReferenceSpace.jl")
 
