@@ -2,9 +2,10 @@
 
 rotatereferenceatlas = x -> reverse(permutedims(x, (1, 3, 2)), dims=(3,))
 # Plot the reference volume and probe locations
-function plotreferencevolume(S; dostructures = true, resolution=(1200, 800))
-    channels = getchannels(S)
-    vol, info = gettemplatevolume()
+function plotreferencevolume(S; dostructures = true, resolution=(2400, 1600), ids=nothing)
+    #! Check probe locations are correct
+    channels = AN.getchannels(S)
+    vol, info = AN.gettemplatevolume()
     vol = Array{Float16}(vol)
     grad = cgrad(cgrad([RGBA(1.0, 1.0, 1.0, 0.0), RGBA(0.0, 0.0, 0.0, 1.0)]), 100)
     #coords = [(1:s).*25 for s ∈ size(vol)] # 25 μm resolution
@@ -13,24 +14,29 @@ function plotreferencevolume(S; dostructures = true, resolution=(1200, 800))
     s = Scene()
     coords = [1:s for s ∈ size(rotatereferenceatlas(vol))./2]
     coords[3] = .-coords[3]
-    f = volume!(s, coords..., rotatereferenceatlas(vol)[1:2:end, 1:2:end, 1:2:end]; algorithm=:mip, colorrange=extrema(vol), colormap=collect(grad), figure =(resolution = resolution,), ticks=nothing) # Or :mip
+    f = volume!(s, coords..., rotatereferenceatlas(vol)[1:2:end, 1:2:end, 1:2:end]; algorithm=:mip, colorrange=extrema(vol), colormap=collect(grad), figure =(resolution = resolution,), ticks=nothing, fxaa=true) # Or :mip
+    #s.plots[1].attributes[:fxaa] = true
 
+    (x, y, z) = AN.getprobecoordinates(S)./50
+    f = meshscatter!(s, x, z, -y, markersize=1.0, fxaa=true)
+
+    #scale!(s, 1, 1, -1)
     if dostructures
-        channels = subset(get_channels(),       :ecephys_probe_id           => ByRow(!ismissing),
+        channels = subset(AN.get_channels(),       :ecephys_probe_id           => ByRow(!ismissing),
                                                 :ecephys_structure_id       => ByRow(!ismissing),
                                                 :ecephys_structure_acronym  => ByRow(x->x!=="grey"))
-
-        ids = unique(channels[!, :ecephys_structure_id])
-        ids = ids[getstructuretreedepth.(ids) .< 9]
-        for id ∈ ids[8]
+        if isnothing(ids)
+            ids = unique(channels[!, :ecephys_structure_id])
+            #ids = ids[AN.getstructuretreedepth.(ids) .< 9]
+        end
+        for id ∈ ids
             try
-                mask, _ = getstructuremask(id)
+                mask, _ = AN.getstructuremask(id)
                 mask = Array{Float64}(rotatereferenceatlas(mask)[1:2:end, 1:2:end, 1:2:end])
                 mc_algo = NaiveSurfaceNets(iso=0, insidepositive=true)
-                m = GeometryBasics.Mesh(mask, mc_algo)
-                c = getstructurecolor(id)
-                [[(i[end] = -i[end]) for i ∈ x] for x ∈ m] # Need to reflect last coordinate
-                mesh!(s, m)#; color=(c, 0.5), transparency=true)
+                m = GeometryBasics.Mesh(mask, mc_algo; origin=[min(coords[i]...) for i ∈ 1:length(coords)], widths=[abs(-(extrema(coords[i])...)) for i ∈ 1:length(coords)])
+                c = AN.getstructurecolor(id)
+                f = mesh!(s, m; color=RGBA(c.r, c.b, c.g, 0.41), fxaa=true)
             catch y
                 @warn y
             end
@@ -38,13 +44,10 @@ function plotreferencevolume(S; dostructures = true, resolution=(1200, 800))
 
     end
 
-    (x, y, z) = getprobecoordinates(S)./50
-    meshscatter!(s, x, z, -y, markersize=1.0)
-    #scale!(s, 1, 1, -1)
     return s
 end
 
-function exportreferencevolume(S, file::String="plot.html")
+function exportreferencevolume(S, file::String="plot.html"; ids=nothing)
     open(file, "w") do io
         println(io, """
         <html>
@@ -56,7 +59,7 @@ function exportreferencevolume(S, file::String="plot.html")
         # make sure the Page setup code gets rendered as HTML
         show(io, MIME"text/html"(), Page(exportable=true, offline=true))
         # Then, you can just inline plots or whatever you want :)
-        show(io, MIME"text/html"(), plotreferencevolume(S, resolution=(2400, 1600), dostructures=false))
+        show(io, MIME"text/html"(), plotreferencevolume(S; resolution=(2400, 1600), dostructures=true, ids))
         println(io, """
             </body>
         </html>
