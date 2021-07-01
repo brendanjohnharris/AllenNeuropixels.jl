@@ -1,14 +1,5 @@
-using WGLMakie
-using JSServe
-using Colors
-using Meshing
-using MeshIO
-using GeometryBasics
 
 
-# This works best from Julia in the terminal, not in VSCode
-
-Page(exportable=true, offline=true)
 rotatereferenceatlas = x -> reverse(permutedims(x, (1, 3, 2)), dims=(3,))
 # Plot the reference volume and probe locations
 function plotreferencevolume(S; dostructures = true, resolution=(1200, 800))
@@ -72,3 +63,4 @@ function exportreferencevolume(S, file::String="plot.html")
         """)
     end
 end
+
