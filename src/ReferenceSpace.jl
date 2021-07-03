@@ -24,10 +24,31 @@ function getstructuretreedepth(id) # How many parents does this structure have (
 end
 
 
-function getstructurename(Sid)
+function getstructurename(id)
     id = Int(id)
     tree = getstructuretree()
     d = tree.get_structures_by_id([id])[1]
     d["name"]
 end
+
+
+function getallstructureids(args...)
+    t = getstructuretree(args...)
+    d = t.get_name_map()
+    ids = keys(d)
+end
+
+
 #! Can do the rest of this dict by eval?
+
+
+function buildreferencespace(tree=getstructuretree(), annotation=getannotationvolume(), resolution=(25,25,25))
+    if annotation isa Tuple
+        annotation = annotation[1]
+    end
+    rsp = reference_space.ReferenceSpace(tree, annotation, resolution)
+end
+
+function buildstructuremask(id, referencespace=buildreferencespace())
+    referencespace.make_structure_mask([id])
+end

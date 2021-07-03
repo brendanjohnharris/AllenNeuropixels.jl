@@ -10,7 +10,7 @@ function getannotationvolume()
 end
 
 function getstructuremask(structureid::Number)
-    strcutreid = Int(structureid)
+    strucutreid = Int(structureid)
     mask, info =  mouseconnectivitycache().get_structure_mask(structureid)
 end
 
@@ -22,3 +22,4 @@ end
 function getreferencespace()
     reference, reference_info = mouseconnectivitycache().get_reference_space()
 end
+

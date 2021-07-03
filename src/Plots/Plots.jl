@@ -1,5 +1,5 @@
 module Plots
-    using WGLMakie
+    using Makie
     using JSServe
     using Colors
     using Meshing
@@ -8,8 +8,8 @@ module Plots
     using DataFrames
     import ..AllenNeuropixels as AN
 
-    # This works best from Julia in the terminal, not in VSCode
-    Page(exportable=true, offline=true)
+    # WGLMakie works best from Julia in the terminal, not in VSCode
+    #Page(exportable=true, offline=true)
 
 
 

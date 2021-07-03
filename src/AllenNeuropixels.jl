@@ -16,7 +16,8 @@ const ecephys_project_cache = PyNULL()
 const mouse_connectivity_cache = PyNULL()
 const ontologies_api = PyNULL()
 const reference_space_cache = PyNULL()
-export allensdk, brain_observatory, ecephys, ecephys_project_cache, mouse_connectivity_cache, ontologies_api, reference_space_cache
+const reference_space =PyNULL()
+export allensdk, brain_observatory, ecephys, ecephys_project_cache, mouse_connectivity_cache, ontologies_api, reference_space_cache, reference_space
 
 function __init__()
     Conda.pip_interop(true)
@@ -29,9 +30,12 @@ function __init__()
     copy!(mouse_connectivity_cache, pyimport("allensdk.core.mouse_connectivity_cache"))
     copy!(ontologies_api, pyimport("allensdk.api.queries.ontologies_api"))
     copy!(reference_space_cache, pyimport("allensdk.core.reference_space_cache"))
+    copy!(reference_space, pyimport("allensdk.core.reference_space"))
+
     ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=ecephysmanifest)
 
     @require WGLMakie="276b4fcb-3e11-5398-bf8b-a0c2d153d008" @eval using .Plots
+    @require GLMakie="e9467ef8-e4e7-5192-8a1a-b1aee30e663a" @eval using .Plots
 end
 
 

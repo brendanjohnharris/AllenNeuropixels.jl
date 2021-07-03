@@ -1,7 +1,7 @@
 import AllenNeuropixels as AN
 using DataFrames
 
-sessions = AN.get_session_table()
+sessions = AN.getsessiontable()
 
 session = subset(sessions, :sex => ByRow(==("M")), :full_genotype => ByRow(x->contains(x, "Sst")), :session_type => ByRow(==("brain_observatory_1.1")), :ecephys_structure_acronyms => ByRow(x->contains(x, "VISl")))
 
