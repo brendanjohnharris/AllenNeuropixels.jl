@@ -2,7 +2,7 @@
 
 rotatereferenceatlas = x -> reverse(permutedims(x, (1, 3, 2)), dims=(3,))
 # Plot the reference volume and probe locations
-function plotreferencevolume(S; dostructures = true, resolution=(2400, 1600), ids=nothing)
+function plotreferencevolume(S; dostructures = true, resolution=(3840, 2160), ids=nothing)
     #! Check probe locations are correct
     channels = AN.getchannels(S)
     vol, info = AN.gettemplatevolume()
@@ -14,15 +14,30 @@ function plotreferencevolume(S; dostructures = true, resolution=(2400, 1600), id
     s = Scene()
     coords = [1:s for s ∈ size(rotatereferenceatlas(vol))./2]
     coords[3] = .-coords[3]
-    f = volume!(s, coords..., rotatereferenceatlas(vol)[1:2:end, 1:2:end, 1:2:end]; algorithm=:mip, colorrange=extrema(vol), colormap=collect(grad), figure =(resolution = resolution,), ticks=nothing, fxaa=true) # Or :mip
+
+    markercolor = :gray
+    if ids isa Symbol && ids == :all
+        # Get and plot all possible structures
+        #ids = AN.getallstructureids()
+        anns = unique(["FRP", "MO", "SS", "GU", "VISC", "AUD", "ACA", "PL", "ILA", "ORB", "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF", "VISp", "VISl", "VISrl", "VISam", "VISpm", "VIS", "VISal","VISmma","VISmmp","VISli", "LGd","LD", "LP", "VPM", "TH", "MGm","MGv","MGd","PO","LGv","VL",
+         "VPL","POL","Eth","PoT","PP","PIL","IntG","IGL","SGN","VPL","PF","RT", "CA1", "CA2","CA3", "DG", "SUB", "POST","PRE","ProS","HPF", "MB","SCig","SCiw","SCsg","SCzo","PPT","APN","NOT","MRN","OP","LT","RPF","CP"])
+         t = AN.getstructuretree()
+         D = t.get_id_acronym_map()
+         ids = getindex.((D,), anns)
+    end
+
+    f = volume!(s, coords..., rotatereferenceatlas(vol)[1:2:end, 1:2:end, 1:2:end]; algorithm=:mip, colorrange=extrema(vol), colormap=collect(grad), figure =(resolution = resolution,), ticks=nothing, fxaa=true, lightposition = Vec3f0(100000, 100000, 0))
     #s.plots[1].attributes[:fxaa] = true
 
+
     (x, y, z) = AN.getprobecoordinates(S)./50
-    f = meshscatter!(s, x, z, -y, markersize=1.0, fxaa=true)
+    if !any(length.((x, y, z)).==0)
+        f = meshscatter!(s, x, z, -y, markersize=1.0, fxaa=true, color=markercolor, shading=true,lightposition = Vec3f0(100000, 100000, 0))
+    end
 
     #scale!(s, 1, 1, -1)
     if dostructures
-        channels = subset(AN.get_channels(),       :ecephys_probe_id           => ByRow(!ismissing),
+        channels = subset(AN.getchannels(),    :ecephys_probe_id           => ByRow(!ismissing),
                                                 :ecephys_structure_id       => ByRow(!ismissing),
                                                 :ecephys_structure_acronym  => ByRow(x->x!=="grey"))
         if isnothing(ids)
@@ -31,12 +46,16 @@ function plotreferencevolume(S; dostructures = true, resolution=(2400, 1600), id
         end
         for id ∈ ids
             try
-                mask, _ = AN.getstructuremask(id)
+                try
+                    mask, _ = AN.getstructuremask(id)
+                catch
+                    mask = AN.buildstructuremask(id)
+                end
                 mask = Array{Float64}(rotatereferenceatlas(mask)[1:2:end, 1:2:end, 1:2:end])
                 mc_algo = NaiveSurfaceNets(iso=0, insidepositive=true)
                 m = GeometryBasics.Mesh(mask, mc_algo; origin=[min(coords[i]...) for i ∈ 1:length(coords)], widths=[abs(-(extrema(coords[i])...)) for i ∈ 1:length(coords)])
                 c = AN.getstructurecolor(id)
-                f = mesh!(s, m; color=RGBA(c.r, c.b, c.g, 0.41), fxaa=true)
+                f = mesh!(s, m; color=RGBA(c.r, c.b, c.g, 0.41), fxaa=true, shading=true)
             catch y
                 @warn y
             end
