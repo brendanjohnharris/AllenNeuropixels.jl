@@ -5,17 +5,17 @@ end
 # These will take a while to download
 function getsessiontable()
     @info "Please wait, this can take a few seconds"
-    CSV.read(IOBuffer(ecephyscache().getsessiontable().to_csv()), DataFrame);
+    CSV.read(IOBuffer(ecephyscache().get_session_table().to_csv()), DataFrame);
 end
 export getsessiontable
 
 function getprobes()
-    CSV.read(IOBuffer(ecephyscache().getprobes().to_csv()), DataFrame);
+    CSV.read(IOBuffer(ecephyscache().get_probes().to_csv()), DataFrame);
 end
 export getprobes
 
 function getchannels()
-    CSV.read(IOBuffer(ecephyscache().getchannels().to_csv()), DataFrame);
+    CSV.read(IOBuffer(ecephyscache().get_channels().to_csv()), DataFrame);
 end
 export getchannels
 
@@ -31,7 +31,7 @@ export getunits
 
 
 function getunitanalysismetricsbysessiontype(session_type; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5) # Yeah thats python
-    str = ecephyscache().getunitanalysismetricsbysessiontype(session_type,
+    str = ecephyscache().get_unit_analysis_metrics_by_session_type(session_type,
                             filter_by_validity=filter_by_validity,
                             amplitude_cutoff_maximum=amplitude_cutoff_maximum,
                             presence_ratio_minimum=presence_ratio_minimum,
@@ -42,12 +42,12 @@ export getunitanalysismetricsbysessiontype
 
 
 function getallunitmetrics() # This one is really slow
-    metrics1 = getunitanalysismetricsbysessiontype("brain_observatory_1.1",
+    metrics1 = get_unit_analysis_metrics_by_session_type("brain_observatory_1.1",
                             amplitude_cutoff_maximum = Inf,
                             presence_ratio_minimum = -Inf,
                             isi_violations_maximum = Inf)
 
-    metrics2 = getunitanalysismetricsbysessiontype("functional_connectivity",
+    metrics2 = get_unit_analysis_metrics_by_session_type("functional_connectivity",
                             amplitude_cutoff_maximum = Inf,
                             presence_ratio_minimum = -Inf,
                             isi_violations_maximum = Inf)
@@ -58,7 +58,7 @@ export getallunitmetrics
 
 
 function getsessiondata(session_id::Int; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
-    ecephyscache().getsessiondata(session_id; filter_by_validity=filter_by_validity,
+    ecephyscache().get_session_data(session_id; filter_by_validity=filter_by_validity,
                             amplitude_cutoff_maximum=amplitude_cutoff_maximum,
                             presence_ratio_minimum=presence_ratio_minimum,
                             isi_violations_maximum=isi_violations_maximum)
