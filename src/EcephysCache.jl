@@ -77,6 +77,10 @@ getid(S::AbstractSession) = S.pyObject.ecephys_session_id
 getprobes(S::AbstractSession) = CSV.read(IOBuffer(S.pyObject.probes.to_csv()), DataFrame)
 getprobeids(S::AbstractSession) = getprobes(S)[!, :id]
 getchannels(S::AbstractSession) = CSV.read(IOBuffer(S.pyObject.channels.to_csv()), DataFrame)
+function getchannels(S::AbstractSession, probeid)
+    c = getchannels(S)
+    c = subset(c, :probe_id=>ByRow(==(probeid)))
+end
 function getprobecoordinates(S::AbstractSession)
     c = subset(getchannels(S),              :anterior_posterior_ccf_coordinate => ByRow(!ismissing),
                                             :dorsal_ventral_ccf_coordinate => ByRow(!ismissing),
@@ -86,4 +90,23 @@ function getprobecoordinates(S::AbstractSession)
     z = c[!, :left_right_ccf_coordinate]
     return (x, y, z)
 end
+function getprobecoordinates(S::AbstractSession, probeid)
+    c = subset(getchannels(S, probeid),              :anterior_posterior_ccf_coordinate => ByRow(!ismissing),
+                                            :dorsal_ventral_ccf_coordinate => ByRow(!ismissing),
+                                            :left_right_ccf_coordinate => ByRow(!ismissing))
+    x = c[!, :anterior_posterior_ccf_coordinate]
+    y = c[!, :dorsal_ventral_ccf_coordinate]
+    z = c[!, :left_right_ccf_coordinate]
+    return (x, y, z)
+end
+function getstructureacronyms(channelids::Vector{Int})
+    channels = getchannels()
+    acronyms = Vector{Any}(undef, size(channelids))
+    [acronyms[i] = channels[channels.id.==channelids[i], :ecephys_structure_acronym][1] for i ∈ 1:length(channelids)]
+    return acronyms
+end
 
+
+function getstimuli(S::Session)
+    S.pyObject.stimulus_presentations.optogenetic_stimulation_epochs
+end

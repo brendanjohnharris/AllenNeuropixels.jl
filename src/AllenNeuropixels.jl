@@ -7,30 +7,40 @@ using Dates
 using TimeZones
 using CSV
 using Requires
+using Parquet
 
 
 const allensdk = PyNULL()
 const brain_observatory = PyNULL()
 const ecephys = PyNULL()
 const ecephys_project_cache = PyNULL()
+const brain_observatory_cache = PyNULL()
+const stimulus_info = PyNULL()
 const mouse_connectivity_cache = PyNULL()
 const ontologies_api = PyNULL()
 const reference_space_cache = PyNULL()
 const reference_space =PyNULL()
+const pyarrow = PyNULL()
+const parquet = PyNULL()
 export allensdk, brain_observatory, ecephys, ecephys_project_cache, mouse_connectivity_cache, ontologies_api, reference_space_cache, reference_space
 
 function __init__()
     Conda.pip_interop(true)
     Conda.update() # You might need to delete the .julia/conda folder and rebuild python; allensdk has some tricky compatibility requirements.
     Conda.pip("install", "allensdk")
+    Conda.pip("install", "pyarrow")
     copy!(allensdk, pyimport("allensdk"))
     copy!(brain_observatory, pyimport("allensdk.brain_observatory"))
+    copy!(stimulus_info, pyimport("allensdk.brain_observatory.stimulus_info"))
     copy!(ecephys, pyimport("allensdk.brain_observatory.ecephys"))
     copy!(ecephys_project_cache, pyimport("allensdk.brain_observatory.ecephys.ecephys_project_cache"))
+    copy!(brain_observatory_cache, pyimport("allensdk.core.brain_observatory_cache"))
     copy!(mouse_connectivity_cache, pyimport("allensdk.core.mouse_connectivity_cache"))
     copy!(ontologies_api, pyimport("allensdk.api.queries.ontologies_api"))
     copy!(reference_space_cache, pyimport("allensdk.core.reference_space_cache"))
     copy!(reference_space, pyimport("allensdk.core.reference_space"))
+    copy!(pyarrow, pyimport("pyarrow"))
+    copy!(parquet, pyimport("pyarrow.parquet"))
 
     ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=ecephysmanifest)
 
@@ -45,6 +55,7 @@ function setdatadir(datadir::String)
 end
 const datadir = replace(@load_preference("datadir", joinpath(pkgdir(AllenNeuropixels), "data/")), "\\"=>"/")
 const ecephysmanifest = replace(joinpath(datadir, "Ecephys", "manifest.json"), "\\"=>"/")
+const brainobservatorymanifest = replace(joinpath(datadir, "BrainObservatory", "manifest.json"), "\\"=>"/")
 const mouseconnectivitymanifest = replace(joinpath(datadir, "MouseConnectivity", "manifest.json"), "\\"=>"/")
 const referencespacemanifest = replace(joinpath(datadir, "ReferenceSpace", "manifest.json"), "\\"=>"/")
 
@@ -55,6 +66,7 @@ export convertdataframe
 
 
 include("./EcephysCache.jl")
+include("./BrainObservatory.jl")
 include("./LFP.jl")
 include("./MouseConnectivityCache.jl")
 include("./Plots/Plots.jl")

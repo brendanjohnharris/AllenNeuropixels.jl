@@ -2,7 +2,7 @@
 
 rotatereferenceatlas = x -> reverse(permutedims(x, (1, 3, 2)), dims=(3,))
 # Plot the reference volume and probe locations
-function plotreferencevolume(S; dostructures = true, ids=:targets, resolution=(1920, 1080), kwargs...)
+function plotreferencevolume(S; dotext=true, dostructures = true, ids=:targets, resolution=(1920, 1080), kwargs...)
     #! Check probe locations are correct
     channels = AN.getchannels(S)
     vol, info = AN.gettemplatevolume()
@@ -37,14 +37,18 @@ function plotreferencevolume(S; dostructures = true, ids=:targets, resolution=(1
     f = volume!(s, coords..., rotatereferenceatlas(vol)[1:2:end, 1:2:end, 1:2:end]; algorithm=:mip, colorrange=extrema(vol), colormap=collect(grad), ticks=nothing, fxaa=true, kwargs...)
     #s.plots[1].attributes[:fxaa] = true
 
+    chrome = FileIO.load(download("https://raw.githubusercontent.com/nidorx/matcaps/master/1024/E6BF3C_5A4719_977726_FCFC82.png"))
+    for probeid in unique(channels.probe_id)
+        (x, y, z) = AN.getprobecoordinates(S, probeid)./50
+        if !any(length.((x, y, z)).==0)
+            f = meshscatter!(s, x, z, -y; markersize=1.0, fxaa=true, color=markercolor, matcap=chrome, shading=true, kwargs...)
 
-    (x, y, z) = AN.getprobecoordinates(S)./50
-    if !any(length.((x, y, z)).==0)
-        chrome = FileIO.load(download("https://raw.githubusercontent.com/nidorx/matcaps/master/1024/E6BF3C_5A4719_977726_FCFC82.png"))
-
-        f = meshscatter!(s, x, z, -y; markersize=1.0, fxaa=true, color=markercolor, matcap=chrome, shading=true, kwargs...)
+            if dotext
+                _, idx = findmax(z) # The highest unit
+                text!(s, string(probeid), position=Vec3f0(x[idx], z[idx], -y[idx]), space=:data, textsize=5, align=(:right, :bottom), rotation=Quaternion((-0.3390201, 0.33899, 0.6205722, -0.620517)))
+            end
+        end
     end
-
     #scale!(s, 1, 1, -1)
     if dostructures
         channels = subset(AN.getchannels(),    :ecephys_probe_id           => ByRow(!ismissing),
@@ -65,7 +69,7 @@ function plotreferencevolume(S; dostructures = true, ids=:targets, resolution=(1
                 mc_algo = NaiveSurfaceNets(iso=0, insidepositive=true)
                 m = GeometryBasics.Mesh(mask, mc_algo; origin=[min(coords[i]...) for i ∈ 1:length(coords)], widths=[abs(-(extrema(coords[i])...)) for i ∈ 1:length(coords)])
                 c = AN.getstructurecolor(id)
-                f = mesh!(s, m; color=RGBA(c.r, c.b, c.g, 0.41), fxaa=true, shading=true, kwargs...)
+                f = mesh!(s, m; color=RGBA(c.r, c.g, c.b, 0.41), fxaa=true, shading=true, kwargs...)
             catch y
                 @warn y
             end
@@ -92,6 +96,7 @@ function exportreferencevolume(S, file::String="plot.html"; ids=:targets, kwargs
             """)
     end
 end
+
 
 
 function formattedreferencevolume(S, file::String="plot.html")
