@@ -39,7 +39,7 @@ using FileIO
 # ╔═╡ 766a8af5-4c89-4fe7-883d-d960ef91edfd
 md"""
 # Allen Neuropixels
-_Investigating low-dimensional projections of the Allen neuropixels visual coding of dataset_
+_Accessing the Allen Neuropixels visual coding dataset in Julia_
 """
 
 # ╔═╡ 66677c85-5aed-4793-aa03-ab070aa42dd0

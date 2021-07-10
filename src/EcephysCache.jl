@@ -41,6 +41,7 @@ end
 export getunitanalysismetricsbysessiontype
 
 
+
 function getallunitmetrics() # This one is really slow
     metrics1 = get_unit_analysis_metrics_by_session_type("brain_observatory_1.1",
                             amplitude_cutoff_maximum = Inf,
@@ -64,7 +65,6 @@ function getsessiondata(session_id::Int; filter_by_validity=true, amplitude_cuto
                             isi_violations_maximum=isi_violations_maximum)
 end
 export getsessiondata
-
 
 abstract type AbstractSession end
 
@@ -109,4 +109,9 @@ end
 
 function getstimuli(S::Session)
     S.pyObject.stimulus_presentations.optogenetic_stimulation_epochs
+end
+
+function getunitmetrics(session::AbstractSession)
+    str = session.pyObject.units.to_csv()
+    CSV.read(IOBuffer(str), DataFrame);
 end
