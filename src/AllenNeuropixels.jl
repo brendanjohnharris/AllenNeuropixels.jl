@@ -7,7 +7,6 @@ using Dates
 using TimeZones
 using CSV
 using Requires
-using Parquet
 
 
 const allensdk = PyNULL()
@@ -20,15 +19,12 @@ const mouse_connectivity_cache = PyNULL()
 const ontologies_api = PyNULL()
 const reference_space_cache = PyNULL()
 const reference_space =PyNULL()
-const pyarrow = PyNULL()
-const parquet = PyNULL()
 export allensdk, brain_observatory, ecephys, ecephys_project_cache, mouse_connectivity_cache, ontologies_api, reference_space_cache, reference_space
 
 function __init__()
     Conda.pip_interop(true)
     Conda.update() # You might need to delete the .julia/conda folder and rebuild python; allensdk has some tricky compatibility requirements.
     Conda.pip("install", "allensdk")
-    Conda.pip("install", "pyarrow")
     copy!(allensdk, pyimport("allensdk"))
     copy!(brain_observatory, pyimport("allensdk.brain_observatory"))
     copy!(stimulus_info, pyimport("allensdk.brain_observatory.stimulus_info"))
@@ -39,8 +35,6 @@ function __init__()
     copy!(ontologies_api, pyimport("allensdk.api.queries.ontologies_api"))
     copy!(reference_space_cache, pyimport("allensdk.core.reference_space_cache"))
     copy!(reference_space, pyimport("allensdk.core.reference_space"))
-    copy!(pyarrow, pyimport("pyarrow"))
-    copy!(parquet, pyimport("pyarrow.parquet"))
 
     ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=ecephysmanifest)
 
