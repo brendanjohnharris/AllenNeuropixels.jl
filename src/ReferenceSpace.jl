@@ -24,11 +24,23 @@ function getstructuretreedepth(id) # How many parents does this structure have (
 end
 
 
-function getstructurename(id)
+function getstructurename(id::Number)
     id = Int(id)
     tree = getstructuretree()
     d = tree.get_structures_by_id([id])[1]
     d["name"]
+end
+function getstructurename(acronym::String)
+    tree = getstructuretree()
+    d = tree.get_structures_by_acronym([acronym])[1]
+    d["name"]
+end
+
+
+function getstructureid(acronym::String)
+    tree = getstructuretree()
+    d = tree.get_structures_by_acronym([acronym])[1]
+    d["id"]
 end
 
 

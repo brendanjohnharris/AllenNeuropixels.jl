@@ -42,7 +42,12 @@ oursession = subset(session_metrics,
 session = AN.Session(oursession.ecephys_session_id[1])
 
 
+probeid = 769322749
 
 
 # --------------------- Do the plots and save to dropbox --------------------- #
 AN.Plots.formattedreferencevolume(session, "C:\\Users\\Brendan\\Dropbox (Sydney Uni Student)\\AllenNeuropixels\\probelocations.html")
+
+data = AN.getdownsampledlfp(session, probeid);
+fig = AN.Plots.neuroslidingcarpet(data; resolution=(800, 800));
+AN.Plots.htmlexport(fig)

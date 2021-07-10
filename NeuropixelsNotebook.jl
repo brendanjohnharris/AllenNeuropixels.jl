@@ -48,7 +48,6 @@ html"""<img src="https://dl.dropbox.com/s/8amsi9wv0xtc1p3/muwfg7yln8a61.jpg?dl=0
 # ╔═╡ bea5de79-6e8a-42d8-ab76-bae8e3c23747
 md"""
 ## Introduction
-........intro..........
 
 Details on neuropixels and the visual coding dataset can be found in the Allen SDK [docs](https://allensdk.readthedocs.io/en/latest/visual_coding_neuropixels.html), the [white-paper](https://dl.dropbox.com/s/tav6rft6iyd173k/neuropixels_visual_coding_-_white_paper_v10.pdf) or the [cheat-sheet](https://dl.dropbox.com/s/9v1x9eibmtb8fwg/neuropixels_cheat_sheet_nov_2019.pdf)
 """
@@ -153,7 +152,7 @@ session_metrics = combine(groupby(metrics, :ecephys_session_id),
 		:snr=>median∘skipmissing)
 
 # ╔═╡ 51eccd32-d4e9-4330-99f5-fca0f8534e43
-md""""
+md"""
 Of particular importance are the first five columns. The ideal session will have 6probes, LFP data for all units and for now we wish to choose a wild type mouse. It should also contain data for probes that intersect with the major regions of interest highlighted in the white paper. The maximum drift, which measures mean (and possibly variance) nonstationarity unrelated to the visual stimulus (such as probe motion relative to the brain) should also be minimised. We can also look for probes that intersect all of the target regions, given in the white paper as:
 """
 
@@ -165,16 +164,36 @@ oursession = subset(session_metrics,
 						:has_lfp_data_all => ByRow(==(true)),
 						:max_drift_median_skipmissing => ByRow(<(25.0)))
 
-# ╔═╡ 86382404-f784-4357-ae3c-05f7246d093b
+# ╔═╡ 23d8fad0-5c51-4056-8df3-fd850db7b560
 md"""
-To create a variable of type Session, which emulates Python's OOP interface:
+For a smaller quantity of data we can also pick just one probe from this session: `probeC: 769322749` intersects a few interesting regions, like the primary visual cortex, the hippocampus and the thalamus.
+"""
+
+# ╔═╡ 99e2e888-c1cf-4370-b1b4-eccc6cbda7de
+probeid = 769322749
+
+# ╔═╡ d552f132-6f90-4aba-9e05-1e7e20929756
+md"""
+## Inspecting data
+....................
+
+To mimic the Allen SDK's OOP interface we can use a custom type wrapping a session obect:
 """
 
 # ╔═╡ c3093ce3-7b73-49d4-8ce8-aaea4b49b685
 session = AN.Session(oursession.ecephys_session_id[1])
 
+# ╔═╡ 3ec0b209-2287-4fcf-be04-688bd4fb327a
+sessionid = AN.getid(session)
+
+# ╔═╡ ebe8631b-4248-4b5a-94e2-071c0b560747
+md"The six probes for this session are:"
+
+# ╔═╡ c77034a4-a6b4-4970-bdc8-9a6b30cbb687
+probes = AN.getprobes(session)
+
 # ╔═╡ 12d66773-c567-4e5a-a119-4fa5e06ec98c
-md"We are only interested in channels located within the brain, so the channels for this session are:"
+md"We are only interested in channels located within the brain, so the `missing` structure ids are removed and the channels for this session become:"
 
 # ╔═╡ 5f944e90-5232-4508-9a3a-c678e6804104
 channels = subset(AN.getchannels(session), :ecephys_structure_id=>ByRow(!ismissing))
@@ -193,6 +212,20 @@ We can then plot the probe locations on the reference atlas. Note that the color
 # To save you from waiting for the structure masks to download:
 @html_str read(download("https://dl.dropbox.com/s/se2doygr56ox8hs/probelocations.html?dl=0"), String) 
 # This renders best in firefox
+
+# ╔═╡ b9c2e65c-03cf-45d7-9309-b601f486c62b
+md"""
+The LFP data for our probe can be accessed as (warning, it is slow):
+"""
+
+# ╔═╡ f0241126-912b-4863-9d4e-917af1426602
+data = AN.getdownsampledlfp(session, probeid)
+
+# ╔═╡ 39ae3db9-b799-4389-80e7-e898e4e88a84
+fig = AN.Plots.neuroslidingcarpet(data[1:5000, :]; resolution=(800, 1600))
+
+# ╔═╡ b40977a5-5adb-4d6c-83e0-b3422c7c0733
+Revise.retry()
 
 # ╔═╡ Cell order:
 # ╠═98c9bbd2-aac5-4c90-ac0c-d8d935f5cdaf
@@ -221,9 +254,18 @@ We can then plot the probe locations on the reference atlas. Note that the color
 # ╠═fd03139c-4bd1-4f26-a8c3-46c3feefd9c5
 # ╟─51eccd32-d4e9-4330-99f5-fca0f8534e43
 # ╠═927605f4-0b59-4871-a13f-420aadedd487
-# ╟─86382404-f784-4357-ae3c-05f7246d093b
+# ╟─23d8fad0-5c51-4056-8df3-fd850db7b560
+# ╟─99e2e888-c1cf-4370-b1b4-eccc6cbda7de
+# ╟─d552f132-6f90-4aba-9e05-1e7e20929756
 # ╠═c3093ce3-7b73-49d4-8ce8-aaea4b49b685
+# ╟─3ec0b209-2287-4fcf-be04-688bd4fb327a
+# ╟─ebe8631b-4248-4b5a-94e2-071c0b560747
+# ╠═c77034a4-a6b4-4970-bdc8-9a6b30cbb687
 # ╟─12d66773-c567-4e5a-a119-4fa5e06ec98c
 # ╠═5f944e90-5232-4508-9a3a-c678e6804104
 # ╟─423edd0f-60ed-4d9a-b84a-47e47e560ae2
-# ╠═12f8e03b-4ea3-4211-a9b1-f8432dfae3a9
+# ╟─12f8e03b-4ea3-4211-a9b1-f8432dfae3a9
+# ╟─b9c2e65c-03cf-45d7-9309-b601f486c62b
+# ╠═f0241126-912b-4863-9d4e-917af1426602
+# ╠═39ae3db9-b799-4389-80e7-e898e4e88a84
+# ╠═b40977a5-5adb-4d6c-83e0-b3422c7c0733
