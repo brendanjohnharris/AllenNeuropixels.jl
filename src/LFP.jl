@@ -42,7 +42,7 @@ end
 """
 Get the lfp data for a probe,  providing *indices* for channels and times. See function below for indexing by channel ids and time values/intervals
 """
-function _getlfp(session::AbstractSession, probeid::Int; channels=1:length(getlfpchannels(session, probeid)), times=1:length(getlfptimes(session, probeid)))
+function _getlfp(session::AbstractSession, probeid::Int; channelidxs=1:length(getlfpchannels(session, probeid)), timeidxs=1:length(getlfptimes(session, probeid)))
     @assert(any(getprobeids(session) .== probeid), "Probe $probeid does not belong to session $(getid(session))")
     @assert(subset(getprobes(session), :id=>ByRow(==(probeid)))[!, :has_lfp_data][1], @error "Probe $probeid does not have LFP data")
     path = getlfppath(session, probeid)
@@ -57,18 +57,32 @@ function _getlfp(session::AbstractSession, probeid::Int; channels=1:length(getlf
     f = h5open(path)
 
     timedata = getlfptimes(session, probeid)
-    timedata = timedata[times]
-
+    timedata = timedata[timeidxs]
+    dopermute = true
     channelids = getlfpchannels(session, probeid)
-    channelids = channelids[channels]
-    if (channels isa Union{Int64, AbstractRange{Int64}}) & (times isa Union{Int64, AbstractRange{Int64}}) # Can use HDF5 slicing
+    channelids = channelids[channelidxs]
+    if (channelidxs isa Union{Int64, AbstractRange{Int64}}) & (timeidxs isa Union{Int64, AbstractRange{Int64}}) # Can use HDF5 slicing
         @info "Slicetime Baybee"
-        lfp = f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"][channels, times]
+        lfp = f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"][channelidxs, timeidxs]
+    elseif timeidxs isa Union{Int64, AbstractRange{Int64}}
+        @info "Yeah we slice"
+        lfp = [f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"][i, timeidxs] for i ∈ channelidxs]
+        lfp = hcat(lfp...)
+        dopermute = false
     else
         lfp = read(f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"])
-        lfp = lfp[channels, times]
+        lfp = lfp[channelidxs, timeidxs]
     end
-    X = DimArray(lfp', (Ti(timedata),  Dim{:channel}(channelids)))
+    if lfp isa Vector
+       lfp = reshape(lfp, 1, length(lfp))
+    end
+    if channelids isa Number
+        channelids = [channelids]
+    end
+    if dopermute
+        lfp = permutedims(lfp, reverse(1:ndims(lfp)))
+    end
+    X = DimArray(lfp, (Ti(timedata),  Dim{:channel}(channelids)))
     close(f)
     return X
 end
@@ -91,49 +105,72 @@ end
 """
 This is the one you should be using. Get lfp data by channel id and time intervals or vector. Also, throw error if you try to access an invalid time interval.
 """
-function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(session, probeid), times=OpenInterval(extrema(getlfptimes(session, probeid))...))
-    channelids = channels
-    timevals = times
-    if isinvalidtime(session, probeid, timevals)
+function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(session, probeid), times=ClosedInterval(extrema(getlfptimes(session, probeid))...))
+    if isinvalidtime(session, probeid, times)
         @error "Requested LFP data contains an invalid time..."
     end
 
-    channels = getlfpchannels(session, probeid)
-    channels = indexin(channelids, channels)
-    @assert length(channels) == length(channelids)
+    channelidxs = getlfpchannels(session, probeid)
+    channelidxs = indexin(channels, channelidxs)
+    channelidxs = filter(!isnothing, channelidxs)
+    @assert length(channels) == length(channelidxs)
 
-    times = getlfptimes(session, probeid)
-    if !(timevals isa Interval) && length(timevals) == 2
-        timevals = OpenInterval(timevals...)
+    timeidxs = getlfptimes(session, probeid)
+    if !(times isa Interval) && length(times) == 2
+        timeidxs = ClosedInterval(times...)
     end
-    if timevals isa Interval
-        times = findall(times .∈ (timevals,))
+    if times isa Interval
+        timeidxs = findall(timeidxs .∈ (times,))
     else
-        times = indexin(timevals, times)
-        @assert length(times) == length(timevals)
+        timeidxs = indexin(times, timeidxs)
+        timeidxs = filter(!isnothing, timeidxs)
+        @assert length(timeidxs) == length(times)
     end
 
     # See if we can convert to unitranges for faster HDF5 reading via slicing
-    if collect(UnitRange(extrema(times)...)) == times
-        times = UnitRange(extrema(times)...)
+    if collect(UnitRange(extrema(timeidxs)...)) == timeidxs
+        timeidxs = UnitRange(extrema(timeidxs)...)
     end
-    if collect(UnitRange(extrema(channels)...)) == channels
-        channels = UnitRange(extrema(channels)...)
+    if collect(UnitRange(extrema(channelidxs)...)) == channelidxs
+        channelidxs = UnitRange(extrema(channelidxs)...)
     end
 
     @info "Accessing LFP data"
-    _getlfp(session, probeid; channels, times)
+    _getlfp(session, probeid; channelidxs, timeidxs)
 end
 
 """
 If you want to downsample the LFP data, its quicker to use this function and then perform slicing afterwards (since getlfp() has to check all of the time coordinates you supply, which can be slow).
 """
-function getdownsampledlfp(session, probeid; downsample=100, timerange=OpenInterval(extrema(getlfptimes(session, probeid))...))
+function getdownsampledlfp(session, probeid; downsample=100, timerange=ClosedInterval(extrema(getlfptimes(session, probeid))...), channels=getlfpchannels(session, probeid))
     if !(timerange isa Interval) && length(timerange) == 2
-        timerange = OpenInterval(timerange...)
+        timerange = ClosedInterval(timerange...)
     end
     timevals = getlfptimes(session, probeid)
     tidxs = timevals .∈ (timerange,)
     times = findfirst(tidxs):downsample:findlast(tidxs)
-    _getlfp(session, probeid; times)
+    _getlfp(session, probeid; timeidxs = times)[:, At(channels)]
+end
+
+
+"""
+Now we can overload `getlfp()` to index by structure
+"""
+function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector{String}, String}; kwargs...)
+    if structures isa String
+        structures = [structures]
+    end
+    channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(∈(structures)), skipmissing=true)
+    channels = channels.id ∩ getlfpchannels(session, probeid)
+    getlfp(session, probeid; channels, kwargs...)
+end
+
+function getchannels(data::DimArray)
+    dims(data, :channel).val
+end
+
+function getchanneldepths(session, channels)
+    cdf = getchannels(session)
+    cdf = cdf[indexin(channels, cdf.id)[:], :]
+    return cdf.probe_vertical_position
 end
