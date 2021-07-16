@@ -108,10 +108,20 @@ end
 
 
 function getstimuli(S::Session)
-    S.pyObject.stimulus_presentations.optogenetic_stimulation_epochs
+    str =  S.pyObject.stimulus_presentations.to_csv()
+    CSV.read(IOBuffer(str), DataFrame);
 end
 
 function getunitmetrics(session::AbstractSession)
     str = session.pyObject.units.to_csv()
     CSV.read(IOBuffer(str), DataFrame);
+end
+
+function getstimulusname(session::AbstractSession, time; stimulus_table=getstimuli(session))
+    idx = findlast(stimulus_table.start_time .< time)
+    if isnothing(idx)
+        ""
+    else
+        stimulus_table.stimulus_name[idx]
+    end
 end

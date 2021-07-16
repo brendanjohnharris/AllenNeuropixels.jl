@@ -169,8 +169,17 @@ function getchannels(data::DimArray)
     dims(data, :channel).val
 end
 
-function getchanneldepths(session, channels)
-    cdf = getchannels(session)
+"""
+At the moment this is just a proxy: distance along the probe to the cortical surface
+"""
+function getchanneldepths(session, probeid, channels)
+    cdf = getchannels(session, probeid)
+    # Assume the first `missing` channel corresponds to the surface
+    surfaceposition = minimum(subset(cdf, :ecephys_structure_acronym=>ByRow(ismissing)).probe_vertical_position)
     cdf = cdf[indexin(channels, cdf.id)[:], :]
-    return cdf.probe_vertical_position
+    depths = (surfaceposition .- cdf.probe_vertical_position) # In μm, presumably
+    return depths
 end
+
+getdim(X::AbstractDimArray, dim) = dims(X, dim).val
+gettimes(X::AbstractDimArray) = getdim(X, Ti)

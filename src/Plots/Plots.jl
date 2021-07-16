@@ -30,6 +30,7 @@ module Plots
                 """)
         end
     end
+    exporthtml = htmlexport
 
 
 
