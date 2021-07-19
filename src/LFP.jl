@@ -32,6 +32,9 @@ function getlfptimes(session::AbstractSession, probeid)
 end
 
 function getlfpchannels(session::AbstractSession, probeid)
+    if !isfile(getlfppath(session, probeid))
+        downloadlfp(session, probeid)
+    end
     f = h5open(getlfppath(session, probeid))
     channels = f["general"]["extracellular_ephys"]["electrodes"]["id"][:]
     close(f)
@@ -46,7 +49,6 @@ function _getlfp(session::AbstractSession, probeid::Int; channelidxs=1:length(ge
     @assert(any(getprobeids(session) .== probeid), "Probe $probeid does not belong to session $(getid(session))")
     @assert(subset(getprobes(session), :id=>ByRow(==(probeid)))[!, :has_lfp_data][1], @error "Probe $probeid does not have LFP data")
     path = getlfppath(session, probeid)
-
     if !isfile(path)
         downloadlfp(session, probeid)
     end
@@ -105,9 +107,19 @@ end
 """
 This is the one you should be using. Get lfp data by channel id and time intervals or vector. Also, throw error if you try to access an invalid time interval.
 """
-function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(session, probeid), times=ClosedInterval(extrema(getlfptimes(session, probeid))...))
+function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(session, probeid), times=ClosedInterval(extrema(getlfptimes(session, probeid))...), inbrain=false)
     if isinvalidtime(session, probeid, times)
         @error "Requested LFP data contains an invalid time..."
+    end
+
+    if inbrain isa Symbol || inbrain isa Real || inbrain
+        depths = getchanneldepths(session, probeid, channels)
+        if inbrain isa Real # A depth cutoff
+            channels = channels[depths .> inbrain]
+        elseif inbrain isa Symbol # A mode
+        else # Just cutoff at the surface
+            channels = channels[depths .> 0]
+        end
     end
 
     channelidxs = getlfpchannels(session, probeid)
@@ -117,7 +129,7 @@ function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(
 
     timeidxs = getlfptimes(session, probeid)
     if !(times isa Interval) && length(times) == 2
-        timeidxs = ClosedInterval(times...)
+        times = ClosedInterval(times...)
     end
     if times isa Interval
         timeidxs = findall(timeidxs .∈ (times,))
@@ -165,6 +177,10 @@ function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector
     getlfp(session, probeid; channels, kwargs...)
 end
 
+function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
+    LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
+end
+
 function getchannels(data::DimArray)
     dims(data, :channel).val
 end
@@ -174,10 +190,22 @@ At the moment this is just a proxy: distance along the probe to the cortical sur
 """
 function getchanneldepths(session, probeid, channels)
     cdf = getchannels(session, probeid)
-    # Assume the first `missing` channel corresponds to the surface
+    return _getchanneldepths(cdf, channels)
+end
+# function getchanneldepths(session, channels)
+#     cdf = getchannels(session) # Slightly slower than the above
+#     #cdf = cdf[indexin(channels, cdf.id), :]
+#     cdfs = groupby(cdf, :probe_id)
+#     depths = vcat([_getchanneldepths(c, c.id) for c ∈ cdfs]...)
+#     depths = depths[indexin(channels, vcat(cdfs...).id)]
+# end
+function _getchanneldepths(cdf, channels)
     surfaceposition = minimum(subset(cdf, :ecephys_structure_acronym=>ByRow(ismissing)).probe_vertical_position)
-    cdf = cdf[indexin(channels, cdf.id)[:], :]
-    depths = (surfaceposition .- cdf.probe_vertical_position) # In μm, presumably
+    # Assume the first `missing` channel corresponds to the surfaceprobe_vertical_position
+    idxs = indexin(channels, cdf.id)[:]
+    alldepths = surfaceposition .- cdf.probe_vertical_position # in μm
+    depths = fill(NaN, size(idxs))
+    depths[.!isnothing.(idxs)] = alldepths[idxs[.!isnothing.(idxs)]]
     return depths
 end
 

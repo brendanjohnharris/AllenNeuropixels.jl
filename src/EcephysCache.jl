@@ -120,7 +120,7 @@ end
 function getstimulusname(session::AbstractSession, time; stimulus_table=getstimuli(session))
     idx = findlast(stimulus_table.start_time .< time)
     if isnothing(idx)
-        ""
+        "blank"
     else
         stimulus_table.stimulus_name[idx]
     end
