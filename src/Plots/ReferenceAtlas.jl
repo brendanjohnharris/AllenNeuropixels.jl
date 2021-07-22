@@ -3,7 +3,6 @@
 rotatereferenceatlas = x -> reverse(permutedims(x, (1, 3, 2)), dims=(3,))
 # Plot the reference volume and probe locations
 function plotreferencevolume(S; dotext=true, dostructures = true, ids=:targets, resolution=(1920, 1080), kwargs...)
-    #! Check probe locations are correct
     channels = AN.getchannels(S)
     vol, info = AN.gettemplatevolume()
     vol = Array{Float16}(vol)
