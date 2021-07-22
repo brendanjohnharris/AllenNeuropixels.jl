@@ -50,9 +50,7 @@ function getallstructureids(args...)
     ids = keys(d)
 end
 
-
 #! Can do the rest of this dict by eval?
-
 
 function buildreferencespace(tree=getstructuretree(), annotation=getannotationvolume(), resolution=(25,25,25))
     if annotation isa Tuple

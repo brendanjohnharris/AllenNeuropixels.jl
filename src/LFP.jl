@@ -91,6 +91,9 @@ end
 
 
 function isinvalidtime(session, probeids=getprobeids(session), times=NaN)
+    if isempty(session.pyObject.get_invalid_times()) # No invalid times in this session!
+        return false
+    end
     intervals = [session.pyObject.get_invalid_times().start_time.values, session.pyObject.get_invalid_times().stop_time.values]
     intervals = [[intervals[1][i], intervals[2][i]] for i ∈ 1:length(intervals[1])]
     tags = session.pyObject.get_invalid_times().tags.values
@@ -211,3 +214,10 @@ end
 
 getdim(X::AbstractDimArray, dim) = dims(X, dim).val
 gettimes(X::AbstractDimArray) = getdim(X, Ti)
+
+
+function sortbydepth(session, probeid, LFP::AbstractDimArray)
+    depths = getchanneldepths(session, probeid, getchannels(LFP))
+    idxs = sortperm(depths)
+    return LFP[:, idxs]
+end

@@ -102,10 +102,10 @@ end;
 md"""
 We can filter down sessions in a few more ways. Firstly, the visaul coding data is divided into two stimulus sets. To summuraise the white paper:
 - The **Brain Observatory 1.1** stimulus set:
-    - Gabor patches appearing randomly on a 9 x 9 grid 
+    - Gabor patches appearing randomly on a 9 x 9 grid
     - Dark or light flashes
     - Drift gratings in 8 directions and 5 temporal frequencies, with 15 repeats per condition
-    - Static gratings at 6 orientations, 5 spatial frequencies, and 4 phases 
+    - Static gratings at 6 orientations, 5 spatial frequencies, and 4 phases
     - 118 natural images
     - Two natural movies from Touch of Evil; a 30 second clips repeated 20 times and a 120 second clip repeated 10 times
 
@@ -124,8 +124,8 @@ In summary, the Brain Observatory dataset is formed by a greater variety of stim
 # ╔═╡ 82ce6d0f-b60b-41f2-bdce-c6ecf545bf65
 md"""
 Next, we can inspect the unit quality metrics of each session. Three metric criteria have recommended values:
-- `amplitude_cutoff_maximum = 0.1`: Limits the approximate false negative rate in spike detection, calculated by assuming the distribution of amplitudes is symmetric. 
-- `presence_ratio_minimum = 0.9`: Ensures proportion of 100 recording sub-intervals that have at least one spike detection is above 90% (i.e. the unit has not drifted and the sorting algorithm is correctly identifying spikes). 
+- `amplitude_cutoff_maximum = 0.1`: Limits the approximate false negative rate in spike detection, calculated by assuming the distribution of amplitudes is symmetric.
+- `presence_ratio_minimum = 0.9`: Ensures proportion of 100 recording sub-intervals that have at least one spike detection is above 90% (i.e. the unit has not drifted and the sorting algorithm is correctly identifying spikes).
 - `isi_violations_maximum = 0.5`: Limits the number of units that record from multiple neurons. Inter-spike interval (ISI) violations are detections of spikes that occur during the typical refractory period of a single neuron, so are likely to originate from a second neuron.
 
 
@@ -153,11 +153,11 @@ session_metrics = combine(groupby(metrics, :ecephys_session_id),
 
 # ╔═╡ 51eccd32-d4e9-4330-99f5-fca0f8534e43
 md"""
-Of particular importance are the first five columns. The ideal session will have 6probes, LFP data for all units and for now we wish to choose a wild type mouse. It should also contain data for probes that intersect with the major regions of interest highlighted in the white paper. The maximum drift, which measures mean (and possibly variance) nonstationarity unrelated to the visual stimulus (such as probe motion relative to the brain) should also be minimised. We can also look for probes that intersect all of the target regions, given in the white paper as:
+Of particular importance are the first five columns. The ideal session will have 6 probes, LFP data for all units and for now we wish to choose a wild type mouse. It should also contain data for probes that intersect with the major regions of interest highlighted in the white paper. The maximum drift, which measures mean (and possibly variance) nonstationarity unrelated to the visual stimulus (such as probe motion relative to the brain) should also be minimised. We can also look for probes that intersect all of the target regions, given in the white paper as:
 """
 
 # ╔═╡ 927605f4-0b59-4871-a13f-420aadedd487
-oursession = subset(session_metrics, 
+oursession = subset(session_metrics,
 						:num_probes => ByRow(==(6)),
 						:target_intersections => ByRow(>(0.9)),
 						:is_wt => ByRow(==(true)),
@@ -210,7 +210,7 @@ We can then plot the probe locations on the reference atlas. Note that the color
 #								shading=true); rotate_cam!(s, Vec3f0(0, 2.35, 0)); s
 
 # To save you from waiting for the structure masks to download:
-@html_str read(download("https://dl.dropbox.com/s/se2doygr56ox8hs/probelocations.html?dl=0"), String) 
+@html_str read(download("https://dl.dropbox.com/s/se2doygr56ox8hs/probelocations.html?dl=0"), String)
 # This renders best in firefox
 
 # ╔═╡ b9c2e65c-03cf-45d7-9309-b601f486c62b
