@@ -106,6 +106,13 @@ function getstructureacronyms(channelids::Vector{Int})
     return acronyms
 end
 
+function getstructureids(channelids::Vector{Int})
+    channels = getchannels()
+    acronyms = Vector{Any}(undef, size(channelids))
+    [acronyms[i] = channels[channels.id.==channelids[i], :ecephys_structure_id][1] for i ∈ 1:length(channelids)]
+    return acronyms
+end
+
 
 function getstimuli(S::Session)
     str =  S.pyObject.stimulus_presentations.to_csv()
@@ -124,4 +131,26 @@ function getstimulusname(session::AbstractSession, time; stimulus_table=getstimu
     else
         stimulus_table.stimulus_name[idx]
     end
+end
+
+
+function getstimuli(S::Session, stimulusname::String)
+    stimulus_table = getstimuli(S)
+    df = subset(stimulus_table, :stimulus_name=>ByRow(==(stimulusname)))
+end
+
+function getstimuli(session::Session, times::Union{Tuple, UnitRange, LinRange, Vector})
+    stimuli = getstimuli(session)
+    idxs = [findfirst(time .< stimuli.stop_time) for time ∈ times] # Find first frame that ends after each time point
+    return stimuli[idxs, :]
+end
+
+function getepochs(S::Session)
+    p = S.pyObject.get_stimulus_epochs()
+    CSV.read(IOBuffer(p.to_csv()), DataFrame);
+end
+
+function getepochs(S::Session, stimulusname)
+    epoch_table = getepochs(S)
+    df = subset(epoch_table, :stimulus_name=>ByRow(==(stimulusname)))
 end

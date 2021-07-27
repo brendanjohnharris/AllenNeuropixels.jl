@@ -184,7 +184,7 @@ function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
     LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
 end
 
-function getchannels(data::DimArray)
+function getchannels(data::AbstractDimArray)
     dims(data, :channel).val
 end
 
@@ -218,6 +218,7 @@ gettimes(X::AbstractDimArray) = getdim(X, Ti)
 
 function sortbydepth(session, probeid, LFP::AbstractDimArray)
     depths = getchanneldepths(session, probeid, getchannels(LFP))
-    idxs = sortperm(depths)
-    return LFP[:, idxs]
+    indices = Array{Any}([1:size(LFP, i) for i in 1:length(size(LFP))])
+    indices[findfirst(isa.(dims(LFP), Dim{:channel}))] = sortperm(depths)
+    return LFP[indices...]
 end

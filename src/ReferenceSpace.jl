@@ -9,11 +9,16 @@ function getstructuretree(space=referencespacecache(), id=1) # Default id is mou
     space.get_structure_tree(structure_graph_id=id)
 end
 
-function getstructurecolor(id)
+function getstructurecolor(id::Union{Number, Missing}; tree = getstructuretree())
+    !ismissing(id) || return RGB(0.0, 0.0, 0.0)
     id = Int(id)
-    tree = getstructuretree()
     d = tree.get_structures_by_id([id])[1]
+    !isnothing(d) || return RGB(0.0, 0.0, 0.0)
     c = RGB((d["rgb_triplet"]./256)...)
+end
+function getstructurecolors(ids::AbstractVector)
+    tree = getstructuretree()
+    getstructurecolor.(ids; tree)
 end
 
 function getstructuretreedepth(id) # How many parents does this structure have (+1)?
