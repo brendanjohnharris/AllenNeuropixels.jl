@@ -64,10 +64,8 @@ function _getlfp(session::AbstractSession, probeid::Int; channelidxs=1:length(ge
     channelids = getlfpchannels(session, probeid)
     channelids = channelids[channelidxs]
     if (channelidxs isa Union{Int64, AbstractRange{Int64}}) & (timeidxs isa Union{Int64, AbstractRange{Int64}}) # Can use HDF5 slicing
-        @info "Slicetime Baybee"
         lfp = f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"][channelidxs, timeidxs]
     elseif timeidxs isa Union{Int64, AbstractRange{Int64}}
-        @info "Yeah we slice"
         lfp = [f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"][i, timeidxs] for i ∈ channelidxs]
         lfp = hcat(lfp...)
         dopermute = false

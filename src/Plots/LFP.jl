@@ -40,7 +40,6 @@ function slidingcarpet(X::DimArray; resolution=(800, 400), kwargs...)
 end
 
 function neuroslidingcarpet(X::DimArray; resolution=(800, 400), kwargs...)
-    X = AN.sortbydepth(session, probeid, X)
     time = dims(X, Ti).val
     channels = AN.getstructureacronyms(Meta.parse.(string.(dims(X, :channel).val)))
     fig = slidingcarpet(time, channels, X.-mean(Array(X), dims=1); resolution=resolution, kwargs...)
