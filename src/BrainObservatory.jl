@@ -70,8 +70,30 @@ function getdriftinggratingframes(session, times)
     return DimArray(frames, (Dim{:time}(times)))
 end
 
+function getstaticgratingframes(session, times, spontaneous=false)
+    df = getstimuli(session, times)
+    height = 100
+    aspect_ratio = 2
+    frames = [Matrix{Float32}(undef, height, aspect_ratio*height) for t ∈ 1:length(times)]
+    for t ∈ 1:lastindex(times)
+        if any((df.orientation[t], df.contrast) .== ["null"]) || spontaneous
+            frames[t] .= 0.4
+        else
+            frames[t] = getspatialgrating(;
+                    height,
+                    aspect_ratio,
+                    ori=df.orientation[t]|>Meta.parse,
+                    pix_per_cycle=1/Meta.parse(df.spatial_frequency[t]),
+                    p2p_amp=df.contrast[t]|>Meta.parse)
+        end
+    end
+    return DimArray(frames, (Dim{:time}(times)))
+end
+
 function _getstimulusframes(session, times, stimulus)
-    if stimulus == "drifting_gratings"
+    if stimulus ∈ ["static_gratings", "spontaneous"] # Spontaneous is just a mean-luminance blank screen]
+        getstaticgratingframes(session, times, stimulus=="spontaneous")
+    elseif stimulus == "drifting_gratings"
         getdriftinggratingframes(session, times)
     elseif stimulus ∈ ["natural_movie_one", "natural_movie_three", "natural_scenes"]
         getnaturalstimulusframes(session, times)
@@ -83,5 +105,5 @@ function getstimulusframes(session, times)
     epochs = epochs[[any(times .∈ x.start_time..x.stop_time) for x ∈ eachrow(epochs)], :] # Get epochs that contain the times
     epochtimes = [[t for t ∈ times if t ∈ x.start_time..x.stop_time] for x ∈ eachrow(epochs)]
     frames = [_getstimulusframes(session, epochtimes[x], epochs.stimulus_name[x]) for x ∈ 1:length(epochtimes)]
-    frames =  cat(frames..., dims=Dim{:time})
+    frames = DimArray(vcat(frames...), (Dim{:time}(times)))
 end

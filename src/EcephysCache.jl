@@ -124,7 +124,7 @@ function getunitmetrics(session::AbstractSession)
     CSV.read(IOBuffer(str), DataFrame);
 end
 
-function getstimulusname(session::AbstractSession, time; stimulus_table=getstimuli(session))
+function getstimulusname(session::AbstractSession, time::Number; stimulus_table=getstimuli(session))
     idx = findlast(stimulus_table.start_time .< time)
     if isnothing(idx)
         "blank"
@@ -132,6 +132,7 @@ function getstimulusname(session::AbstractSession, time; stimulus_table=getstimu
         stimulus_table.stimulus_name[idx]
     end
 end
+getstimulusname(session::AbstractSession, times; stimulus_table=getstimuli(session), kwargs...) = getstimulusname.([session], times; stimulus_table, kwargs...)
 
 
 function getstimuli(S::Session, stimulusname::String)
@@ -146,7 +147,7 @@ function getstimuli(session::Session, times::Union{Tuple, UnitRange, LinRange, V
 end
 
 function getepochs(S::Session)
-    p = S.pyObject.get_stimulus_epochs()
+    p = S.pyObject.get_stimulus_epochs() # Why is this so slow
     CSV.read(IOBuffer(p.to_csv()), DataFrame);
 end
 
