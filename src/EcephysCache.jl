@@ -106,12 +106,52 @@ function getstructureacronyms(channelids::Vector{Int})
     return acronyms
 end
 
+function getstructureids(channelids::Vector{Int})
+    channels = getchannels()
+    acronyms = Vector{Any}(undef, size(channelids))
+    [acronyms[i] = channels[channels.id.==channelids[i], :ecephys_structure_id][1] for i ∈ 1:length(channelids)]
+    return acronyms
+end
+
 
 function getstimuli(S::Session)
-    S.pyObject.stimulus_presentations.optogenetic_stimulation_epochs
+    str =  S.pyObject.stimulus_presentations.to_csv()
+    CSV.read(IOBuffer(str), DataFrame);
 end
 
 function getunitmetrics(session::AbstractSession)
     str = session.pyObject.units.to_csv()
     CSV.read(IOBuffer(str), DataFrame);
+end
+
+function getstimulusname(session::AbstractSession, time::Number; stimulus_table=getstimuli(session))
+    idx = findlast(stimulus_table.start_time .< time)
+    if isnothing(idx)
+        "blank"
+    else
+        stimulus_table.stimulus_name[idx]
+    end
+end
+getstimulusname(session::AbstractSession, times; stimulus_table=getstimuli(session), kwargs...) = getstimulusname.([session], times; stimulus_table, kwargs...)
+
+
+function getstimuli(S::Session, stimulusname::String)
+    stimulus_table = getstimuli(S)
+    df = subset(stimulus_table, :stimulus_name=>ByRow(==(stimulusname)))
+end
+
+function getstimuli(session::Session, times::Union{Tuple, UnitRange, LinRange, Vector})
+    stimuli = getstimuli(session)
+    idxs = [findfirst(time .< stimuli.stop_time) for time ∈ times] # Find first frame that ends after each time point
+    return stimuli[idxs, :]
+end
+
+function getepochs(S::Session)
+    p = S.pyObject.get_stimulus_epochs() # Why is this so slow
+    CSV.read(IOBuffer(p.to_csv()), DataFrame);
+end
+
+function getepochs(S::Session, stimulusname)
+    epoch_table = getepochs(S)
+    df = subset(epoch_table, :stimulus_name=>ByRow(==(stimulusname)))
 end

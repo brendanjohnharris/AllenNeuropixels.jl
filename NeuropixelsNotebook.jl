@@ -42,12 +42,9 @@ md"""
 _Accessing the Allen Neuropixels visual coding dataset in Julia_
 """
 
-# ╔═╡ 66677c85-5aed-4793-aa03-ab070aa42dd0
-html"""<img src="https://dl.dropbox.com/s/8amsi9wv0xtc1p3/muwfg7yln8a61.jpg?dl=0" alt="Bloons">"""
-
 # ╔═╡ bea5de79-6e8a-42d8-ab76-bae8e3c23747
 md"""
-## Introduction
+## Background
 
 Details on neuropixels and the visual coding dataset can be found in the Allen SDK [docs](https://allensdk.readthedocs.io/en/latest/visual_coding_neuropixels.html), the [white-paper](https://dl.dropbox.com/s/tav6rft6iyd173k/neuropixels_visual_coding_-_white_paper_v10.pdf) or the [cheat-sheet](https://dl.dropbox.com/s/9v1x9eibmtb8fwg/neuropixels_cheat_sheet_nov_2019.pdf)
 """
@@ -57,11 +54,17 @@ md"## Required packages"
 
 # ╔═╡ c48bd78e-aab0-49c0-b137-567c208b8aa1
 md"""
-Interfacing with the Python [Allen SDK](https://github.com/AllenInstitute/AllenSDK) is handled by the [AllenNeuropixels](https://github.com/brendanjohnharris/AllenNeuropixels.jl) package, which uses the [Makie](https://github.com/JuliaPlots/Makie.jl) package for plotting (since, unlike [Plots](https://github.com/JuliaPlots/Plots.jl), it is geared towards interactivity and can leverage the GPU for big datasets). We will use the WGLMakie as the backend, as well as DataFrames and Statistics for working with tables.
+Interfacing with the Python [Allen SDK](https://github.com/AllenInstitute/AllenSDK) is handled by the [AllenNeuropixels](https://github.com/brendanjohnharris/AllenNeuropixels.jl) package, which uses the [Makie](https://github.com/JuliaPlots/Makie.jl) package for plotting (with GPU acceleration and interactivity). We will use the WGLMakie as the backend, as well as DataFrames and Statistics for working with tables.
 """
 
 # ╔═╡ c445ccf4-cf10-43b9-9c01-4051abc400ba
-# Pkg.add(url="https://github.com/brendanjohnharris/AllenNeuropixels.jl#main")
+#begin
+#	Pkg.add(url="https://github.com/brendanjohnharris/AllenNeuropixels.jl#main")
+#	Pkg.add("WGLMakie")
+#	Pkg.add("DataFrames")
+#	Pkg.add("Statistics")
+#	Pkg.add("FileIO")
+#end
 
 # ╔═╡ d8fd4541-08a5-4ace-a998-769771c976e8
 import AllenNeuropixels as AN
@@ -69,7 +72,7 @@ import AllenNeuropixels as AN
 # ╔═╡ 5bfaefae-11a5-4567-8b83-d583f03a75a8
 md"""
 ## Choosing a session
-The Allen neuropixels visual coding dataset is subdivided into sessions. A session contains data from one murine subject across a recording interval during which it was shown a variety of visual stimuli (such as natural scenes, drift gratings and gabors). This data includes local field potentials (LFP) and spike times from each of the 374 data channels on, usually, six neuropixels probes inserted around the visual cortex. The LFP data is also downsampled by a half in time and a quarter over channels.
+The Allen neuropixels visual coding dataset is subdivided into sessions. A session contains data from one murine subject across a recording interval during which it was shown a variety of visual stimuli (such as natural scenes, drift gratings and gabors). These data include local field potentials (LFP) and spike times from each of the 374 data channels on, usually, six neuropixels probes inserted around the visual cortex. The LFP data is also downsampled by a half in time and a quarter over channels.
 
 The entire neuropixels visual coding dataset contains dozens of sessions and is hundreds of megabytes in size, so we will first choose one session (a few gigabytes of data) instead of performing group-level analyses. To produce a dataframe of session details:
 """
@@ -102,10 +105,10 @@ end;
 md"""
 We can filter down sessions in a few more ways. Firstly, the visaul coding data is divided into two stimulus sets. To summuraise the white paper:
 - The **Brain Observatory 1.1** stimulus set:
-    - Gabor patches appearing randomly on a 9 x 9 grid 
+    - Gabor patches appearing randomly on a 9 x 9 grid
     - Dark or light flashes
     - Drift gratings in 8 directions and 5 temporal frequencies, with 15 repeats per condition
-    - Static gratings at 6 orientations, 5 spatial frequencies, and 4 phases 
+    - Static gratings at 6 orientations, 5 spatial frequencies, and 4 phases
     - 118 natural images
     - Two natural movies from Touch of Evil; a 30 second clips repeated 20 times and a 120 second clip repeated 10 times
 
@@ -118,14 +121,14 @@ We can filter down sessions in a few more ways. Firstly, the visaul coding data 
     - One natural movie shown 60 times plus 20 repeats of a temporally shuffled version
     - A dot motion stimulus of approximately 200 white dots on a gray background moving at one of 7 speeds in four different directions
 
-In summary, the Brain Observatory dataset is formed by a greater variety of stimuli but a smaller number of repeats than the Functional Connectivity dataset. **We choose the Brain Observatory dataset since differences in activity patterns are likely to be more pronounced between different types of stimuli than variations on a stimulus, and our uniformly windowed analysis is not concerned with averaging over repetitions.**
+In summary, the Brain Observatory dataset contains a greater variety of stimuli but a smaller number of repeats than the Functional Connectivity dataset. **We'll look at sessions in the Brain Observatory dataset.**
 """
 
 # ╔═╡ 82ce6d0f-b60b-41f2-bdce-c6ecf545bf65
 md"""
 Next, we can inspect the unit quality metrics of each session. Three metric criteria have recommended values:
-- `amplitude_cutoff_maximum = 0.1`: Limits the approximate false negative rate in spike detection, calculated by assuming the distribution of amplitudes is symmetric. 
-- `presence_ratio_minimum = 0.9`: Ensures proportion of 100 recording sub-intervals that have at least one spike detection is above 90% (i.e. the unit has not drifted and the sorting algorithm is correctly identifying spikes). 
+- `amplitude_cutoff_maximum = 0.1`: Limits the approximate false negative rate in spike detection, calculated by assuming the distribution of amplitudes is symmetric.
+- `presence_ratio_minimum = 0.9`: Ensures proportion of 100 recording sub-intervals that have at least one spike detection is above 90% (i.e. the unit has not drifted and the sorting algorithm is correctly identifying spikes).
 - `isi_violations_maximum = 0.5`: Limits the number of units that record from multiple neurons. Inter-spike interval (ISI) violations are detections of spikes that occur during the typical refractory period of a single neuron, so are likely to originate from a second neuron.
 
 
@@ -153,11 +156,11 @@ session_metrics = combine(groupby(metrics, :ecephys_session_id),
 
 # ╔═╡ 51eccd32-d4e9-4330-99f5-fca0f8534e43
 md"""
-Of particular importance are the first five columns. The ideal session will have 6probes, LFP data for all units and for now we wish to choose a wild type mouse. It should also contain data for probes that intersect with the major regions of interest highlighted in the white paper. The maximum drift, which measures mean (and possibly variance) nonstationarity unrelated to the visual stimulus (such as probe motion relative to the brain) should also be minimised. We can also look for probes that intersect all of the target regions, given in the white paper as:
+Of particular importance are the first five columns. The ideal session will have 6 probes, LFP data for all units and for now we wish to choose a wild type mouse. It should also contain data for probes that intersect with the major regions of interest highlighted in the white paper. The maximum drift, which measures mean (and possibly variance) nonstationarity unrelated to the visual stimulus (such as probe motion relative to the brain) should also be minimised. We can also look for probes that intersect all of the target regions, given in the white paper as the visual areas, the hippocampal formation, the thalamus and the midbrain:
 """
 
 # ╔═╡ 927605f4-0b59-4871-a13f-420aadedd487
-oursession = subset(session_metrics, 
+oursession = subset(session_metrics,
 						:num_probes => ByRow(==(6)),
 						:target_intersections => ByRow(>(0.9)),
 						:is_wt => ByRow(==(true)),
@@ -175,9 +178,8 @@ probeid = 769322749
 # ╔═╡ d552f132-6f90-4aba-9e05-1e7e20929756
 md"""
 ## Inspecting data
-....................
 
-To mimic the Allen SDK's OOP interface we can use a custom type wrapping a session obect:
+To mimic the Allen SDK's interface we can use a custom type wrapping a session obect:
 """
 
 # ╔═╡ c3093ce3-7b73-49d4-8ce8-aaea4b49b685
@@ -210,7 +212,7 @@ We can then plot the probe locations on the reference atlas. Note that the color
 #								shading=true); rotate_cam!(s, Vec3f0(0, 2.35, 0)); s
 
 # To save you from waiting for the structure masks to download:
-@html_str read(download("https://dl.dropbox.com/s/se2doygr56ox8hs/probelocations.html?dl=0"), String) 
+@html_str read(download("https://dl.dropbox.com/s/se2doygr56ox8hs/probelocations.html?dl=0"), String)
 # This renders best in firefox
 
 # ╔═╡ b9c2e65c-03cf-45d7-9309-b601f486c62b
@@ -219,19 +221,34 @@ The LFP data for our probe can be accessed as (warning, it is slow):
 """
 
 # ╔═╡ f0241126-912b-4863-9d4e-917af1426602
-data = AN.getdownsampledlfp(session, probeid)
+LFP = AN.getdownsampledlfp(session, probeid)
+
+# ╔═╡ d0a301a0-038c-4827-8683-e9d8807186ea
+md"And sorted by depth with:"
+
+# ╔═╡ a5fca30e-531e-4b09-97e9-a762059dc66c
+sortedLFP = AN.sortbydepth(session, probeid, LFP)[:, end:-1:1]
 
 # ╔═╡ 39ae3db9-b799-4389-80e7-e898e4e88a84
-fig = AN.Plots.neuroslidingcarpet(data[1:5000, :]; resolution=(800, 1600))
+fig = AN.Plots.neuroslidingcarpet(sortedLFP[1:5000, :]; resolution=(800, 1600))
 
-# ╔═╡ b40977a5-5adb-4d6c-83e0-b3422c7c0733
-Revise.retry()
+# ╔═╡ 87ab5ec5-67a9-413d-8789-6a8b7113de65
+md"""
+There are still channels with little signal outside of the brain and at the very surface of the isocortex. To remove these, downsample by 10x and use data from only one stimulus epoch:
+"""
+
+# ╔═╡ da9fa8b0-afcf-4f3d-bd6d-856b69ab6d28
+begin
+	depthcutoff = 200 # μm
+	times = AN.getepochs(session, "natural_movie_three")[1, :]
+	times = [times.start_time, times.stop_time]
+	inbrainLFP = AN.getlfp(session, probeid; inbrain=depthcutoff, times)
+end
 
 # ╔═╡ Cell order:
 # ╠═98c9bbd2-aac5-4c90-ac0c-d8d935f5cdaf
 # ╠═0a622047-c238-49c3-bdf0-3248d0f0d261
 # ╟─766a8af5-4c89-4fe7-883d-d960ef91edfd
-# ╟─66677c85-5aed-4793-aa03-ab070aa42dd0
 # ╟─bea5de79-6e8a-42d8-ab76-bae8e3c23747
 # ╟─f9ac9f6e-f129-4542-81a8-36e6cef9857a
 # ╟─c48bd78e-aab0-49c0-b137-567c208b8aa1
@@ -267,5 +284,8 @@ Revise.retry()
 # ╟─12f8e03b-4ea3-4211-a9b1-f8432dfae3a9
 # ╟─b9c2e65c-03cf-45d7-9309-b601f486c62b
 # ╠═f0241126-912b-4863-9d4e-917af1426602
+# ╟─d0a301a0-038c-4827-8683-e9d8807186ea
+# ╠═a5fca30e-531e-4b09-97e9-a762059dc66c
 # ╠═39ae3db9-b799-4389-80e7-e898e4e88a84
-# ╠═b40977a5-5adb-4d6c-83e0-b3422c7c0733
+# ╠═87ab5ec5-67a9-413d-8789-6a8b7113de65
+# ╠═da9fa8b0-afcf-4f3d-bd6d-856b69ab6d28

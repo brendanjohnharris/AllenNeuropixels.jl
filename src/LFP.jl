@@ -32,6 +32,9 @@ function getlfptimes(session::AbstractSession, probeid)
 end
 
 function getlfpchannels(session::AbstractSession, probeid)
+    if !isfile(getlfppath(session, probeid))
+        downloadlfp(session, probeid)
+    end
     f = h5open(getlfppath(session, probeid))
     channels = f["general"]["extracellular_ephys"]["electrodes"]["id"][:]
     close(f)
@@ -46,7 +49,6 @@ function _getlfp(session::AbstractSession, probeid::Int; channelidxs=1:length(ge
     @assert(any(getprobeids(session) .== probeid), "Probe $probeid does not belong to session $(getid(session))")
     @assert(subset(getprobes(session), :id=>ByRow(==(probeid)))[!, :has_lfp_data][1], @error "Probe $probeid does not have LFP data")
     path = getlfppath(session, probeid)
-
     if !isfile(path)
         downloadlfp(session, probeid)
     end
@@ -62,10 +64,8 @@ function _getlfp(session::AbstractSession, probeid::Int; channelidxs=1:length(ge
     channelids = getlfpchannels(session, probeid)
     channelids = channelids[channelidxs]
     if (channelidxs isa Union{Int64, AbstractRange{Int64}}) & (timeidxs isa Union{Int64, AbstractRange{Int64}}) # Can use HDF5 slicing
-        @info "Slicetime Baybee"
         lfp = f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"][channelidxs, timeidxs]
     elseif timeidxs isa Union{Int64, AbstractRange{Int64}}
-        @info "Yeah we slice"
         lfp = [f["acquisition"][splitext(basename(path))[1]][splitext(basename(path))[1]*"_data"]["data"][i, timeidxs] for i ∈ channelidxs]
         lfp = hcat(lfp...)
         dopermute = false
@@ -89,6 +89,9 @@ end
 
 
 function isinvalidtime(session, probeids=getprobeids(session), times=NaN)
+    if isempty(session.pyObject.get_invalid_times()) # No invalid times in this session!
+        return false
+    end
     intervals = [session.pyObject.get_invalid_times().start_time.values, session.pyObject.get_invalid_times().stop_time.values]
     intervals = [[intervals[1][i], intervals[2][i]] for i ∈ 1:length(intervals[1])]
     tags = session.pyObject.get_invalid_times().tags.values
@@ -105,9 +108,19 @@ end
 """
 This is the one you should be using. Get lfp data by channel id and time intervals or vector. Also, throw error if you try to access an invalid time interval.
 """
-function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(session, probeid), times=ClosedInterval(extrema(getlfptimes(session, probeid))...))
+function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(session, probeid), times=ClosedInterval(extrema(getlfptimes(session, probeid))...), inbrain=false)
     if isinvalidtime(session, probeid, times)
         @error "Requested LFP data contains an invalid time..."
+    end
+
+    if inbrain isa Symbol || inbrain isa Real || inbrain
+        depths = getchanneldepths(session, probeid, channels)
+        if inbrain isa Real # A depth cutoff
+            channels = channels[depths .> inbrain]
+        elseif inbrain isa Symbol # A mode
+        else # Just cutoff at the surface
+            channels = channels[depths .> 0]
+        end
     end
 
     channelidxs = getlfpchannels(session, probeid)
@@ -117,7 +130,7 @@ function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(
 
     timeidxs = getlfptimes(session, probeid)
     if !(times isa Interval) && length(times) == 2
-        timeidxs = ClosedInterval(times...)
+        times = ClosedInterval(times...)
     end
     if times isa Interval
         timeidxs = findall(timeidxs .∈ (times,))
@@ -165,12 +178,45 @@ function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector
     getlfp(session, probeid; channels, kwargs...)
 end
 
-function getchannels(data::DimArray)
+function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
+    LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
+end
+
+function getchannels(data::AbstractDimArray)
     dims(data, :channel).val
 end
 
-function getchanneldepths(session, channels)
-    cdf = getchannels(session)
-    cdf = cdf[indexin(channels, cdf.id)[:], :]
-    return cdf.probe_vertical_position
+"""
+At the moment this is just a proxy: distance along the probe to the cortical surface
+"""
+function getchanneldepths(session, probeid, channels)
+    cdf = getchannels(session, probeid)
+    return _getchanneldepths(cdf, channels)
+end
+# function getchanneldepths(session, channels)
+#     cdf = getchannels(session) # Slightly slower than the above
+#     #cdf = cdf[indexin(channels, cdf.id), :]
+#     cdfs = groupby(cdf, :probe_id)
+#     depths = vcat([_getchanneldepths(c, c.id) for c ∈ cdfs]...)
+#     depths = depths[indexin(channels, vcat(cdfs...).id)]
+# end
+function _getchanneldepths(cdf, channels)
+    surfaceposition = minimum(subset(cdf, :ecephys_structure_acronym=>ByRow(ismissing)).probe_vertical_position)
+    # Assume the first `missing` channel corresponds to the surfaceprobe_vertical_position
+    idxs = indexin(channels, cdf.id)[:]
+    alldepths = surfaceposition .- cdf.probe_vertical_position # in μm
+    depths = fill(NaN, size(idxs))
+    depths[.!isnothing.(idxs)] = alldepths[idxs[.!isnothing.(idxs)]]
+    return depths
+end
+
+getdim(X::AbstractDimArray, dim) = dims(X, dim).val
+gettimes(X::AbstractDimArray) = getdim(X, Ti)
+
+
+function sortbydepth(session, probeid, LFP::AbstractDimArray)
+    depths = getchanneldepths(session, probeid, getchannels(LFP))
+    indices = Array{Any}([1:size(LFP, i) for i in 1:length(size(LFP))])
+    indices[findfirst(isa.(dims(LFP), Dim{:channel}))] = sortperm(depths)
+    return LFP[indices...]
 end
