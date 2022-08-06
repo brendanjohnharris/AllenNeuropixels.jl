@@ -155,3 +155,9 @@ function getepochs(S::Session, stimulusname)
     epoch_table = getepochs(S)
     df = subset(epoch_table, :stimulus_name=>ByRow(==(stimulusname)))
 end
+
+function getstimulustimes(S::Session, stimulusname)
+    E = getepochs(S, stimulusname)
+    ts = [E.start_time E.stop_time]
+    times = [x..y for (x, y) in eachrow(ts)]
+end
