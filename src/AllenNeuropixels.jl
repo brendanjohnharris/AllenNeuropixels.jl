@@ -7,6 +7,11 @@ using Dates
 using TimeZones
 using CSV
 using Requires
+using IntervalSets
+
+# ! For the best chance at a working install:
+# 1. Manually install allensdk in python3.7
+# ENV["PYTHON"]="/usr/bin/python3.7"
 
 
 const allensdk = PyNULL()
@@ -22,9 +27,10 @@ const reference_space =PyNULL()
 export allensdk, brain_observatory, ecephys, ecephys_project_cache, mouse_connectivity_cache, ontologies_api, reference_space_cache, reference_space
 
 function __init__()
-    Conda.pip_interop(true)
-    Conda.update() # You might need to delete the .julia/conda folder and rebuild python; allensdk has some tricky compatibility requirements.
-    Conda.pip("install", "allensdk")
+    # Conda.pip_interop(true)
+    # Conda.update() # You might need to delete the .julia/conda folder and rebuild PyCall; allensdk has some tricky compatibility requirements.
+    # Conda.pip("install", "allensdk")
+
     copy!(allensdk, pyimport("allensdk"))
     copy!(brain_observatory, pyimport("allensdk.brain_observatory"))
     copy!(stimulus_info, pyimport("allensdk.brain_observatory.stimulus_info"))
@@ -42,6 +48,12 @@ function __init__()
     @require GLMakie="e9467ef8-e4e7-5192-8a1a-b1aee30e663a" @eval using .Plots
 end
 
+
+# function setpython37(python39::String)
+#     @set_preferences!("python39" => python39)
+#     @info("New default python executable set; restart your Julia session for this change to take effect")
+# end
+# const python39 = @load_preference("python39", "")
 
 function setdatadir(datadir::String)
     @set_preferences!("datadir" => datadir)
