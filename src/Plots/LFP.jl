@@ -1,4 +1,5 @@
 using DimensionalData
+import DimensionalData as DD
 using Statistics
 using DSP
 using StatsBase
@@ -81,7 +82,22 @@ function traces(x, X::AbstractArray; smooth=10, clabel=nothing, tracez=nothing, 
 end
 export traces
 
-function plotLFPspectra(session, probeid, LFP::AbstractDimArray)
+
+function powerlawfit(_psd::AN.PSDMatrix)
+    y = log10.(mean(_psd, dims=Dim{:channel}))
+    x = dims(_psd, Dim{:𝑓}) |> collect
+    x = repeat(log10.(x), 1, size(y, 2))
+    y = Array(y)[:] # Flatten for regression
+    x = x[:]
+    X = [ones(size(y, 1)) x]
+    b = X\y
+    c, r = b
+    f = x->(10^c).*x.^r
+    return c, r, f
+end
+
+
+function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]))
     # Calculate the power spectrum of each column of the LFP array
     times = collect(dims(LFP, Ti))
     Δt = times[2] - times[1]
@@ -97,7 +113,14 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray)
     psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
     psd = DimArray(psd, (Dim{:𝑓}(𝑓), dims(LFP, :channel)))
     depths = AN.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
-    traces(𝑓, Array(psd); tracez=depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false)
+    fig = traces(𝑓, Array(psd); tracez=depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false)
+    if !isnothing(slope)
+        _psd = psd[Dim{:𝑓}(DD.Between(slope...))]
+        c, r, f = powerlawfit(_psd)
+        lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=:red, linewidth=5)
+        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
+    end
+    return fig
 end
 
 function plotLFPspectra(session, probeids::Vector, LFP::Vector)

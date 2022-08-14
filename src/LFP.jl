@@ -2,6 +2,15 @@ using DimensionalData
 using PyCall
 using IntervalSets
 using HDF5
+using Statistics
+
+LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
+LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
+export LFPMatrix, LFPVector # For simpler dispatch
+dimmatrix(a::Symbol, b::Symbol) = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:Dim{a}, B<:Dim{b}}
+export dimmatrix
+
+PSDMatrix = dimmatrix(:𝑓, :channel)
 
 
 function downloadlfp(S::AbstractSession, probeid::Int)
@@ -219,4 +228,21 @@ function sortbydepth(session, probeid, LFP::AbstractDimArray)
     indices = Array{Any}([1:size(LFP, i) for i in 1:length(size(LFP))])
     indices[findfirst(isa.(dims(LFP), Dim{:channel}))] = sortperm(depths)
     return LFP[indices...]
+end
+
+
+function rectifytime(X::AbstractDimArray; tol=6) # tol gives significant figures for rounding
+    times = gettimes(X)
+    step = times |> diff |> mean
+    err = times |> diff |> std
+    if err > step/10.0^(-tol)
+        @warn "Time step is not approximately constant, skipping rectification"
+    else
+        step = round(step; sigdigits=tol)
+        t0, t1 = round.(extrema(times); sigdigits=tol+1)
+        times = t0:step:t1
+        times = times[1:size(X, Ti)] # Should be ok?
+    end
+    @assert length(times) == size(X, Ti)
+    X = set(X, Ti => times)
 end
