@@ -3,6 +3,7 @@ import DimensionalData as DD
 using Statistics
 using DSP
 using StatsBase
+using IntervalSets
 
 function slidingcarpet(x, y, Z; resolution=(800, 800), kwargs...)
     # x is a vector of times labelling columns of Z, , y is a vector labelling rows of Z and Z is the matrix of time series data
@@ -168,3 +169,34 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector; kwargs...)
     traces(timelags, AC; tracez=depths, xlabel="𝜏 (s)", ylabel="𝜌(𝜏)", title="Autocorrelation of LFP timeseries", clabel="Depth", smooth=10, domean=false, colormap=cgrad([:cornflowerblue, :black], alpha=0.1), kwargs...)
 end
 export plotLFPspectra
+
+
+
+function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, kwargs...)
+    inc = 0
+    #c = 0.0#0.1*mean(diff.(extrema.(eachcol(X)).|>collect))[1]
+    # c = offset*mean(diff.(extrema.(eachslice(X, dim=Dim{:channel})).|>collect))[1]
+    #data = [(inc += (c + minimum(X[:, i] .- X[:, i+1])[1]); X[:, i] .+ inc) for i ∈ 1:size(X, 2)-1]
+    c = zeros(size(X, Dim{:channel}))
+    for i in 2:size(X, Dim{:channel})
+        y = X[:, i]
+        x = X[:, i-1]
+        c[i] = c[i-1] - maximum(x) + minimum(y)
+    end
+    c = c .*offset
+    data = [X[:, i] .+ c[i] for i ∈ 1:size(X, 2)]
+    fig = Figure(); ax = Axis(fig[1, 1], xlabel="time (s)", ylabel="channel", yticklabelsvisible=false, yticksvisible=false); Makie.lines!.((ax,), (dims(X, Ti)|>collect,), data|>collect; kwargs...)
+
+
+    if stimulus isa DataFrame
+        times = Interval(extrema(dims(X, Ti))...)
+        starts = stimulus.start_time
+        stops = stimulus.stop_time
+        starts = starts[starts .∈ (times,)]
+        stops = stops[stops .∈ (times,)]
+        Makie.vlines!(ax, starts, color=:green, linewidth=5)
+        Makie.vlines!(ax, stops, color=:red, linewidth=5)
+    end
+
+    display(fig); (fig, ax)
+end
