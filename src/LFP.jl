@@ -218,6 +218,10 @@ function _getchanneldepths(cdf, channels)
     depths[.!isnothing.(idxs)] = alldepths[idxs[.!isnothing.(idxs)]]
     return depths
 end
+function getchanneldepths(session, probeid, X::LFPMatrix)
+    channels = dims(X, Dim{:channel})|>collect
+    getchanneldepths(session, probeid, channels)
+end
 
 getdim(X::AbstractDimArray, dim) = dims(X, dim).val
 gettimes(X::AbstractDimArray) = getdim(X, Ti)
@@ -240,7 +244,7 @@ function rectifytime(X::AbstractDimArray; tol=6) # tol gives significant figures
     else
         step = round(step; sigdigits=tol)
         t0, t1 = round.(extrema(times); sigdigits=tol+1)
-        times = t0:step:t1
+        times = t0:step:t1+step
         times = times[1:size(X, Ti)] # Should be ok?
     end
     @assert length(times) == size(X, Ti)

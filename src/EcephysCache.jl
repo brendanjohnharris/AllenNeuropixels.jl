@@ -19,6 +19,9 @@ function getchannels()
 end
 export getchannels
 
+listprobes(session) = getchannels.((session,), getprobeids(session))
+export listprobes
+
 
 function getunits(; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
     str = ecephyscache().getunits(filter_by_validity=filter_by_validity,

@@ -75,9 +75,9 @@ include("./EcephysCache.jl")
 include("./BrainObservatory.jl")
 include("./LFP.jl")
 include("./MouseConnectivityCache.jl")
-include("./Plots/Plots.jl")
 include("./Ontologies.jl")
 include("./ReferenceSpace.jl")
+include("./Plots/Plots.jl")
 
 
 end

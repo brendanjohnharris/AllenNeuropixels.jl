@@ -53,7 +53,7 @@ end
 """
 We'll plot the columns of this array as traces of their mean values. `x` is the lag index of each row, `tracez` is the value with which to color each trace (column) and `X` is an array of trace data.
 """
-function traces(x, X::AbstractArray; smooth=10, clabel=nothing, tracez=nothing, colormap=cgrad([:cornflowerblue, :black], alpha=0.2), domean=false, doaxis=true, kwargs...) # ! Plot recipe?
+function traces(x, X::AbstractArray; smooth=10, clabel=nothing, tracez=nothing, colormap=cgrad([:cornflowerblue, :black], alpha=0.2), domean=false, doaxis=true, linewidth=1, kwargs...) # ! Plot recipe?
     MA(g) = [i < smooth ? mean(g[begin:i]) : mean(g[i-smooth+1:i]) for i in 1:length(g)]
     fig = Figure(resolution=(800, 400))
     ax = Axis(fig[1, 1]; kwargs...)
@@ -71,7 +71,7 @@ function traces(x, X::AbstractArray; smooth=10, clabel=nothing, tracez=nothing, 
         vlines!(ax, [0], color = :gray42, linewidth=2)
         hlines!(ax, [0], color = :gray42, linewidth=2)
     end
-    s = lines!(ax, xx, streamlines; color=colors, linewidth=1, colormap)
+    s = lines!(ax, xx, streamlines; color=colors, linewidth, colormap)
     if !isnothing(tracez)
         Colorbar(fig[1, 2], limits=extrema(colors[.!isnan.(colors)]), colormap=cgrad(colormap, alpha=0.7), flipaxis = true, label=clabel)
     end
@@ -97,7 +97,28 @@ function powerlawfit(_psd::AN.PSDMatrix)
 end
 
 
-function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]))
+function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), kwargs...)
+    times = collect(dims(LFP, Ti))
+    Δt = times[2] - times[1]
+    all(Δt .≈ diff(times)) || @warn "Violated assumption: all(Δt .≈ diff(times))"
+    fp = x -> welch_pgram(x, div(length(x), 1000), div(div(length(x), 1000), 2); fs=1/Δt, window=nothing)
+    P = [fp(Array(x)) for x ∈ eachcol(LFP)]
+    𝑓 = P[1].freq # Should be pretty much the same for all columns?
+    psd = hcat([p.power for p ∈ P]...)
+    psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
+    psd = DimArray(psd, (Dim{:𝑓}(𝑓), dims(LFP, :channel)))
+    fig = traces(𝑓, Array(psd); xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
+    if !isnothing(slope)
+        _psd = psd[Dim{:𝑓}(DD.Between(slope...))]
+        c, r, f = powerlawfit(_psd)
+        lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=:red, linewidth=5)
+        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
+    end
+    return fig
+end
+
+
+function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), kwargs...)
     # Calculate the power spectrum of each column of the LFP array
     times = collect(dims(LFP, Ti))
     Δt = times[2] - times[1]
@@ -113,7 +134,7 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, 
     psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
     psd = DimArray(psd, (Dim{:𝑓}(𝑓), dims(LFP, :channel)))
     depths = AN.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
-    fig = traces(𝑓, Array(psd); tracez=depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false)
+    fig = traces(𝑓, Array(psd); tracez=depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
     if !isnothing(slope)
         _psd = psd[Dim{:𝑓}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
@@ -123,7 +144,7 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, 
     return fig
 end
 
-function plotLFPspectra(session, probeids::Vector, LFP::Vector)
+function plotLFPspectra(session, probeids::Vector, LFP::Vector; kwargs...)
     @assert length(probeids) == length(LFP)
     times = collect(dims(LFP[1], Ti))
     Δt = times[2] - times[1]
@@ -144,6 +165,6 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector)
     # idxs = .!isnan.(depths)
     # AC = AC[:, idxs]
     # depths = depths[idxs]
-    traces(timelags, AC; tracez=depths, xlabel="𝜏 (s)", ylabel="𝜌(𝜏)", title="Autocorrelation of LFP timeseries", clabel="Depth", smooth=10, domean=false, colormap=cgrad([:cornflowerblue, :black], alpha=0.1))
+    traces(timelags, AC; tracez=depths, xlabel="𝜏 (s)", ylabel="𝜌(𝜏)", title="Autocorrelation of LFP timeseries", clabel="Depth", smooth=10, domean=false, colormap=cgrad([:cornflowerblue, :black], alpha=0.1), kwargs...)
 end
 export plotLFPspectra
