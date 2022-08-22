@@ -149,6 +149,15 @@ function getstimuli(session::Session, times::Union{Tuple, UnitRange, LinRange, V
     return stimuli[idxs, :]
 end
 
+function getstimuli(session::Session, times::Interval)
+    stimuli = getstimuli(session)
+    start = stimuli.start_time
+    stop = stimuli.stop_time
+    i1 = min(findfirst(start .> minimum(times)), findfirst(stop .> minimum(times)))
+    i2 = max(findlast(start .< maximum(times)), findlast(stop .< maximum(times)))
+    stimuli = stimuli[i1:i2, :]
+end
+
 function getepochs(S::Session)
     p = S.pyObject.get_stimulus_epochs() # Why is this so slow
     CSV.read(IOBuffer(p.to_csv()), DataFrame);
@@ -163,4 +172,15 @@ function getstimulustimes(S::Session, stimulusname)
     E = getepochs(S, stimulusname)
     ts = [E.start_time E.stop_time]
     times = [x..y for (x, y) in eachrow(ts)]
+end
+
+
+
+# * Stimulus analysis
+
+ReceptiveFieldMapping(S::AbstractSession) = stimulusmapping.ReceptiveFieldMapping(S.pyObject)
+
+function getreceptivefield(S::AbstractSession, channel::Number)
+    rfm = ReceptiveFieldMapping(S)
+    rfm.get_receptive_field(channel)
 end
