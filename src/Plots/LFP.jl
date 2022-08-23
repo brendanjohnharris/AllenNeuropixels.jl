@@ -172,7 +172,7 @@ export plotLFPspectra
 
 
 
-function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, kwargs...)
+function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=nothing, kwargs...)
     inc = 0
     #c = 0.0#0.1*mean(diff.(extrema.(eachcol(X)).|>collect))[1]
     # c = offset*mean(diff.(extrema.(eachslice(X, dim=Dim{:channel})).|>collect))[1]
@@ -192,10 +192,21 @@ function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, kwargs...)
         times = Interval(extrema(dims(X, Ti))...)
         starts = stimulus.start_time
         stops = stimulus.stop_time
-        starts = starts[starts .∈ (times,)]
+        startidxs = starts .∈ (times,)
+        starts = starts[startidxs]
         stops = stops[stops .∈ (times,)]
-        Makie.vlines!(ax, starts, color=:green, linewidth=5)
-        Makie.vlines!(ax, stops, color=:red, linewidth=5)
+        if stimcolor isa Symbol
+            linez = stimulus[startidxs, stimcolor]
+            if eltype(linez) <: AbstractString
+                linez = Meta.parse.(linez)
+                linez[linez .== :null] .= 0.0
+                linez = Vector{Float32}(linez)
+            end
+            Makie.vlines!(ax, starts, color=linez, linewidth=5)
+        else
+            Makie.vlines!(ax, starts, color=:green, linewidth=5)
+            Makie.vlines!(ax, stops, color=:red, linewidth=5)
+        end
     end
 
     display(fig); (fig, ax)
