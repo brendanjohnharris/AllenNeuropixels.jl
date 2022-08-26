@@ -30,4 +30,5 @@ module Plots
 
     include("./ReferenceAtlas.jl")
     include("./LFP.jl")
+    include("SpikeBand.jl")
 end

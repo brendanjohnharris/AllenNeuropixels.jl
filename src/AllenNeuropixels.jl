@@ -78,6 +78,8 @@ export convertdataframe
 include("./EcephysCache.jl")
 include("./BrainObservatory.jl")
 include("./LFP.jl")
+include("./SparseDimArray.jl")
+include("./SpikeBand.jl")
 include("./MouseConnectivityCache.jl")
 include("./Ontologies.jl")
 include("./ReferenceSpace.jl")
