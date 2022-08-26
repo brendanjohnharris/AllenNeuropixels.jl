@@ -1,4 +1,5 @@
 using SparseArrays
+using ProgressLogging
 
 function downloadspikes(S::AbstractSession)
     _ = S.pyObject.spike_times
@@ -37,14 +38,16 @@ function getspikes(S::AbstractSession; bin=1e-4, rectify=4)
     end
     ts = tmin:bin:tmax
     spikes = spzeros(Float32, length(ts), length(units))
-    spikes = SparseDimArray(spikes, (Ti(ts), Dim{:unit}(units))) # SparseDimArray?
+    spikes = goSparseDimArray(spikes, (Ti(ts), Dim{:unit}(units))) # SparseDimArray?
+    @withprogress name="catch22" begin
     for u in eachindex(units)
         _times = times[u]
         _amplitudes = amplitudes[u]
-        for t in eachindex(_times)
-            display(spikes[Near(Ti(_times[t])), At(Dim{:unit}(units[u]))])
-            spikes[Near(Ti(_times[t])), At(Dim{:unit}(units[u]))] = _amplitudes[t]
+        for t in eachindex(_times) # Hella slow
+            spikes[Ti(Near(_times[t])), Dim{:unit}(u)] = _amplitudes[t]
         end
+        @logprogress u/length(units)
+    end
     end
     return spikes
 end
