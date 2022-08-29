@@ -189,25 +189,29 @@ function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=
 
 
     if stimulus isa DataFrame
-        times = Interval(extrema(dims(X, Ti))...)
-        starts = stimulus.start_time
-        stops = stimulus.stop_time
-        startidxs = starts .∈ (times,)
-        starts = starts[startidxs]
-        stops = stops[stops .∈ (times,)]
-        if stimcolor isa Symbol
-            linez = stimulus[startidxs, stimcolor]
-            if eltype(linez) <: AbstractString
-                linez = Meta.parse.(linez)
-                linez[linez .== :null] .= 0.0
-                linez = Vector{Float32}(linez)
-            end
-            Makie.vlines!(ax, starts, color=linez, linewidth=5)
-        else
-            Makie.vlines!(ax, starts, color=:green, linewidth=5)
-            Makie.vlines!(ax, stops, color=:red, linewidth=5)
-        end
+        stimulusvlines!(ax, X, stimulus; stimcolor)
     end
 
     display(fig); (fig, ax)
+end
+
+function stimulusvlines!(ax, X, stimulus; stimcolor=nothing)
+    times = Interval(extrema(dims(X, Ti))...)
+    starts = stimulus.start_time
+    stops = stimulus.stop_time
+    startidxs = starts .∈ (times,)
+    starts = starts[startidxs]
+    stops = stops[stops .∈ (times,)]
+    if stimcolor isa Symbol
+        linez = stimulus[startidxs, stimcolor]
+        if eltype(linez) <: AbstractString
+            linez = Meta.parse.(linez)
+            linez[linez .== :null] .= 0.0
+            linez = Vector{Float32}(linez)
+        end
+        Makie.vlines!(ax, starts, color=linez, linewidth=5)
+    else
+        Makie.vlines!(ax, starts, color=:green, linewidth=5)
+        Makie.vlines!(ax, stops, color=:red, linewidth=5)
+    end
 end
