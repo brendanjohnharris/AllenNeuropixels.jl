@@ -119,7 +119,7 @@ end
 
 function getstimuli(S::Session)
     str =  S.pyObject.stimulus_presentations.to_csv()
-    CSV.read(IOBuffer(str), DataFrame);
+    CSV.read(IOBuffer(str), DataFrame)
 end
 
 function getunitmetrics(session::AbstractSession)
