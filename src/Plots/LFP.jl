@@ -183,7 +183,7 @@ function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=
         x = X[:, i-1]
         c[i] = c[i-1] - maximum(x) + minimum(y)
     end
-    c = c .*offset
+    c = c .* offset
     data = [X[:, i] .+ c[i] for i ∈ 1:size(X, 2)]
     fig = Figure(); ax = Axis(fig[1, 1], xlabel="time (s)", ylabel="channel", yticklabelsvisible=false, yticksvisible=false); Makie.lines!.((ax,), (dims(X, Ti)|>collect,), data|>collect; kwargs...)
 

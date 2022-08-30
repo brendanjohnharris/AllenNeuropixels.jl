@@ -191,6 +191,22 @@ function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
     LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
 end
 
+function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp")
+    session = Session(sessionid)
+    if isnothing(structure)
+        structure = getchannels(session, probeid).id |> getstructureacronyms |> unique |> skipmissing |> collect |> Vector{String}
+    end
+    epoch = getepochs(session, stimulus)[1, :]
+    times = epoch.start_time..epoch.stop_time
+    X = getlfp(session, probeid, structure; inbrain=200, times) |> rectifytime
+    X = sortbydepth(session, probeid, X)
+    X = DimArray(X; metadata=Dict(:sessionid=>sessionid, :probeid=>probeid, :stimulus=>stimulus, :structure=>structure))
+end
+
+
+
+
+
 function getchannels(data::AbstractDimArray)
     dims(data, :channel).val
 end
@@ -235,7 +251,7 @@ function sortbydepth(session, probeid, LFP::AbstractDimArray)
 end
 
 
-function rectifytime(X::AbstractDimArray; tol=6) # tol gives significant figures for rounding
+function rectifytime(X::AbstractDimArray; tol=5) # tol gives significant figures for rounding
     times = gettimes(X)
     step = times |> diff |> mean
     err = times |> diff |> std
@@ -249,4 +265,24 @@ function rectifytime(X::AbstractDimArray; tol=6) # tol gives significant figures
     end
     @assert length(times) == size(X, Ti)
     X = set(X, Ti => times)
+end
+
+function gaborintervals(session)
+    stimtable = getstimuli(session, "gabors")
+    stimtable.combined_pos = sqrt.(Meta.parse.(stimtable.x_position).^2 .+ Meta.parse.(stimtable.y_position).^2) # Radial position of the gabor stimulus
+    stimtable.interval = [a..b for (a, b) in zip(stimtable.start_time, stimtable.stop_time)]
+    return stimtable
+end
+
+function radialgaborseries(session, times)
+    stimtable = getstimuli(session, "gabors")
+    stimtable.combined_pos = sqrt.(Meta.parse.(stimtable.x_position).^2 .+ Meta.parse.(stimtable.y_position).^2) # Radial position of the gabor stimulus
+    gaborseries = DimArray(zeros(length(times)), (Ti(times),))
+    for pos in unique(stimtable.combined_pos)
+        gabortimes = [a..b for (a, b, x) in zip(stimtable.start_time, stimtable.stop_time, stimtable.combined_pos) if x == pos]
+        for ts in gabortimes
+            gaborseries[Ti(ts)] .= pos
+        end
+    end
+    return gaborseries
 end
