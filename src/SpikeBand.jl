@@ -9,9 +9,8 @@ function downloadspikes(S::AbstractSession)
     return nothing
 end
 
-
-
-
+SpikeMatrix = SparseDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:unit}}
+export SpikeMatrix
 
 function getsessionpath(session::AbstractSession)
     path = joinpath(datadir, "Ecephys", "session_"*string(getid(session)), "session_"*string(getid(session))*".nwb");
