@@ -205,8 +205,8 @@ function stimulusvlines!(ax, X, stimulus; stimcolor=nothing)
     if stimcolor isa Symbol
         linez = stimulus[startidxs, stimcolor]
         if eltype(linez) <: AbstractString
-            linez = Meta.parse.(linez)
-            linez[linez .== :null] .= 0.0
+            linez = Vector{Any}(Meta.parse.(linez))
+            linez[Symbol.(string.(linez)) .== :null] .= 0.0
             linez = Vector{Float32}(linez)
         end
         Makie.vlines!(ax, starts, color=linez, linewidth=5)
