@@ -47,3 +47,6 @@ Base.Array(A::AbstractSparseDimArray) = parent(A)
 function DimensionalData.rebuild(A::AbstractSparseDimArray, data::AbstractSparseArray, dims::Tuple, refdims::Tuple, name, metadata)
     SparseDimArray(data, dims, refdims, name, metadata)
 end
+
+
+AbstractSparseDimVector = AbstractSparseDimArray{T,1,D,A} where {T, D, A}

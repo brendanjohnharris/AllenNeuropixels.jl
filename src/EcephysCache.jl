@@ -23,44 +23,6 @@ listprobes(session) = getchannels.((session,), getprobeids(session))
 export listprobes
 
 
-function getunits(; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
-    str = ecephyscache().getunits(filter_by_validity=filter_by_validity,
-                            amplitude_cutoff_maximum=amplitude_cutoff_maximum,
-                            presence_ratio_minimum=presence_ratio_minimum,
-                            isi_violations_maximum=isi_violations_maximum).to_csv()
-    CSV.read(IOBuffer(str), DataFrame);
-end
-export getunits
-
-
-function getunitanalysismetricsbysessiontype(session_type; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5) # Yeah thats python
-    str = ecephyscache().get_unit_analysis_metrics_by_session_type(session_type,
-                            filter_by_validity=filter_by_validity,
-                            amplitude_cutoff_maximum=amplitude_cutoff_maximum,
-                            presence_ratio_minimum=presence_ratio_minimum,
-                            isi_violations_maximum=isi_violations_maximum).to_csv()
-    CSV.read(IOBuffer(str), DataFrame);
-end
-export getunitanalysismetricsbysessiontype
-
-
-
-function getallunitmetrics() # This one is really slow
-    metrics1 = get_unit_analysis_metrics_by_session_type("brain_observatory_1.1",
-                            amplitude_cutoff_maximum = Inf,
-                            presence_ratio_minimum = -Inf,
-                            isi_violations_maximum = Inf)
-
-    metrics2 = get_unit_analysis_metrics_by_session_type("functional_connectivity",
-                            amplitude_cutoff_maximum = Inf,
-                            presence_ratio_minimum = -Inf,
-                            isi_violations_maximum = Inf)
-
-    vcat(analysis_metrics1, analysis_metrics2)
-end
-export getallunitmetrics
-
-
 function getsessiondata(session_id::Int; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
     ecephyscache().get_session_data(session_id; filter_by_validity=filter_by_validity,
                             amplitude_cutoff_maximum=amplitude_cutoff_maximum,
@@ -114,6 +76,67 @@ function getstructureids(channelids::Vector{Int})
     acronyms = Vector{Any}(undef, size(channelids))
     [acronyms[i] = channels[channels.id.==channelids[i], :ecephys_structure_id][1] for i ∈ 1:length(channelids)]
     return acronyms
+end
+
+
+function getunits(; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
+    str = ecephyscache().get_units(filter_by_validity=filter_by_validity,
+                            amplitude_cutoff_maximum=amplitude_cutoff_maximum,
+                            presence_ratio_minimum=presence_ratio_minimum,
+                            isi_violations_maximum=isi_violations_maximum).to_csv()
+    CSV.read(IOBuffer(str), DataFrame);
+end
+export getunits
+
+function getunits(structure::String; kwargs...)
+    units = getunits(; kwargs...)
+    units = subset(units, :ecephys_structure_acronym, "VIsp")
+end
+function getsessionunits(session::AbstractSession) # Much faster than the option below
+    units = session.pyObject.units.to_csv()
+    CSV.read(IOBuffer(units), DataFrame)
+end
+function getsessionunits(session::AbstractSession, structure::String)
+    subset(getsessionunits(session), :ecephys_structure_acronym, structure)
+end
+function getunits(session::AbstractSession; kwargs...)
+    units = getunits(; kwargs...)
+    units = subset(units, :ecephys_session_id, getid(session))
+end
+getunits(session::AbstractSession, structure::String) = subset(getunits(session), :ecephys_structure_acronym, structure)
+
+
+
+function getunitanalysismetricsbysessiontype(session_type; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5) # Yeah thats python
+    str = ecephyscache().get_unit_analysis_metrics_by_session_type(session_type,
+                            filter_by_validity=filter_by_validity,
+                            amplitude_cutoff_maximum=amplitude_cutoff_maximum,
+                            presence_ratio_minimum=presence_ratio_minimum,
+                            isi_violations_maximum=isi_violations_maximum).to_csv()
+    CSV.read(IOBuffer(str), DataFrame);
+end
+export getunitanalysismetricsbysessiontype
+
+
+
+function getallunitmetrics() # This one is really slow
+    metrics1 = get_unit_analysis_metrics_by_session_type("brain_observatory_1.1",
+                            amplitude_cutoff_maximum = Inf,
+                            presence_ratio_minimum = -Inf,
+                            isi_violations_maximum = Inf)
+
+    metrics2 = get_unit_analysis_metrics_by_session_type("functional_connectivity",
+                            amplitude_cutoff_maximum = Inf,
+                            presence_ratio_minimum = -Inf,
+                            isi_violations_maximum = Inf)
+
+    vcat(analysis_metrics1, analysis_metrics2)
+end
+export getallunitmetrics
+
+function getunitanalysismetrics(session::AbstractSession; annotate=true, filter_by_validity=true, kwargs...)
+    str = ecephyscache().get_unit_analysis_metrics_for_session(getid(session); annotate, filter_by_validity, kwargs...).to_csv()
+    CSV.read(IOBuffer(str), DataFrame);
 end
 
 

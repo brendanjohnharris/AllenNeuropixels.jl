@@ -21,8 +21,13 @@ function downloadlfp(S::AbstractSession, probeid::Int)
 end
 
 
-
-
+function structure2probe(S::AbstractSession, structure::String)
+    channels = getchannels(S)
+    channels = channels[.!ismissing.(channels.structure_acronym), :]
+    channels = subset(channels, :structure_acronym, structure)
+    @assert length(unique(channels.probe_id)) == 1
+    return channels.probe_id |> unique |> first
+end
 
 function getlfppath(session::AbstractSession, probeid)
     path = joinpath(datadir, "Ecephys", "session_"*string(getid(session)), "probe_"*string(probeid)*"_lfp.nwb");
@@ -187,6 +192,11 @@ function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector
     getlfp(session, probeid; channels, kwargs...)
 end
 
+function getlfp(S::AbstractSession, structure::String; kwargs...)
+    probeid = structure2probe(S, structure)
+    getlfp(S, probeid, structure; kwargs...)
+end
+
 function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
     LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
 end
@@ -285,4 +295,15 @@ function radialgaborseries(session, times)
         end
     end
     return gaborseries
+end
+
+function alignlfp(session, X; x_position=nothing, y_position=nothing)
+    gaborstim = gaborintervals(session)
+    X = rectifytime(X)
+    isnothing(x_position) || (gaborstim = gaborstim[Meta.parse.(gaborstim.x_position) .== x_position, :])
+    isnothing(y_position) || (gaborstim = gaborstim[Meta.parse.(gaborstim.y_position) .== y_position, :])
+    _X = [X[Ti(g)] for g in gaborstim.interval]
+    _X = [x[1:minimum(size.(_X, Ti)), :] for x in _X] # Catch any that are one sample too long
+    # _X = DimArray(mean(collect.(_X)), (Ti(step(dims(X, Ti)):step(dims(X, Ti)):step(dims(X, Ti))*minimum(size.(_X, Ti))), dims(X, Dim{:channel})))
+    return _X
 end
