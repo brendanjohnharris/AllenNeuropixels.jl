@@ -133,6 +133,7 @@ function subset(d::DataFrame, col, vals::AbstractVector)
     idxs = indexin(vals, d[:, col])
     return d[idxs, :]
 end
+subset(d::DataFrame, col, vals::Dim) = subset(d, col, collect(vals))
 subset(d::DataFrame, col, vals::DataFrame) = subset(d, col, vals[:, col])
 function subset(d::DataFrame, col, val)
     idxs = d[:, col] .== val
@@ -154,6 +155,26 @@ function receptivefieldfilter(units::AbstractVector; am = AN.getunitanalysismetr
     am = AN.subset(am, :ecephys_unit_id, units)
     return receptivefieldfilter(am)
 end
+
+
+
+function alignspiketimes(session, X, ::Val{:flashes}; x_position=nothing, y_position=nothing)
+    stims = stimulusintervals(session, "flashes")
+    intervals = stims.interval
+    times = values(X)
+    units = keys(X)
+    _times = []
+    for ts in times
+        _ts = []
+        for i in intervals
+            push!(_ts, ts[ts .∈ (i,)])
+        end
+        push!(_times, _ts)
+    end
+    return Dict(units .=> _times)
+end
+
+alignspiketimes(session, X, stimulus="flashes"; kwargs...) = alignspiketimes(session, X, stimulus|>Symbol|>Val; kwargs...)
 
 
 
@@ -187,3 +208,28 @@ function defaultfanobins(ts)
 end
 
 fanofactor(ts::AbstractVector, T::AbstractVector=defaultfanobins(ts)) = (T, fanofactor.((ts,), T))
+
+
+
+
+function metricmap(stimulus)
+    if stimulus == "flashes"
+        return :fl
+    elseif stimulus == "drifting_gratings"
+        return :dg
+    elseif stimulus == "natural_scenes"
+        return :ns
+    elseif stimulus == "gabors"
+        return :rf
+    end
+end
+
+function getmetric(metrics::DataFrame, metric, stimulus)
+    sesh = metricmap(stimulus)
+    return metrics[:, Symbol(reduce(*, string.([metric, :_, sesh])))]
+end
+
+function getfano(metrics::DataFrame, stimulus)
+    sesh = metricmap(stimulus)
+    return metrics[:, Symbol(reduce(*, string.([:fano_, sesh])))]
+end

@@ -4,8 +4,8 @@ function spikeraster(times::AbstractDict)
 end
 
 
-function spikeraster!(ax::Axis, spikes::AN.SpikeMatrix; kwargs...)
-    spy(dims(spikes, Ti)|>collect, 1:size(spikes, 2), spikes|>Array, markersize=4)
+function spikeraster!(ax::Axis, spikes::AN.SpikeMatrix; markersize=15, marker=:vline, kwargs...)
+    spy!(ax, dims(spikes, Ti)|>collect, 1:size(spikes, 2), spikes|>Array; markersize, marker)
     ax.xlabel = "Time(s)"
     ax.ylabel = "Unit"
     return ax

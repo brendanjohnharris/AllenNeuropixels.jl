@@ -3,6 +3,7 @@ using PyCall
 using IntervalSets
 using HDF5
 using Statistics
+using DSP
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -277,6 +278,12 @@ function rectifytime(X::AbstractDimArray; tol=5) # tol gives significant figures
     X = set(X, Ti => times)
 end
 
+function stimulusintervals(session, stim)
+    stimtable = getstimuli(session, stim)
+    stimtable.interval = [a..b for (a, b) in zip(stimtable.start_time, stimtable.stop_time)]
+    return stimtable
+end
+
 function gaborintervals(session)
     stimtable = getstimuli(session, "gabors")
     stimtable.combined_pos = sqrt.(Meta.parse.(stimtable.x_position).^2 .+ Meta.parse.(stimtable.y_position).^2) # Radial position of the gabor stimulus
@@ -297,7 +304,7 @@ function radialgaborseries(session, times)
     return gaborseries
 end
 
-function alignlfp(session, X; x_position=nothing, y_position=nothing)
+function alignlfp(session, X, ::Val{:gabors}; x_position=nothing, y_position=nothing)
     gaborstim = gaborintervals(session)
     X = rectifytime(X)
     isnothing(x_position) || (gaborstim = gaborstim[Meta.parse.(gaborstim.x_position) .== x_position, :])
@@ -307,3 +314,29 @@ function alignlfp(session, X; x_position=nothing, y_position=nothing)
     # _X = DimArray(mean(collect.(_X)), (Ti(step(dims(X, Ti)):step(dims(X, Ti)):step(dims(X, Ti))*minimum(size.(_X, Ti))), dims(X, Dim{:channel})))
     return _X
 end
+
+alignlfp(session, X, stimulus="gabors"; kwargs...) = alignlfp(session, X, stimulus|>Symbol|>Val; kwargs...)
+
+
+
+
+bandpass(; kwargs...) = x -> bandpass(x; kwargs...)
+
+function bandpass(x::LFPVector; pass, designmethod=Butterworth(4))
+    t = dims(x, Ti)
+    T = t isa AbstractRange ? step(t) : t |> collect |> diff |> mean
+    fs = 1.0/T
+    y = filtfilt(digitalfilter(Bandpass(pass...; fs), designmethod), x)
+    return DimArray(y, dims(x))
+end
+
+function bandpass(X::LFPMatrix, dim=Dim{:channel}; kwargs...)
+    Y = similar(X)
+    Threads.@threads for x in dims(X, dim)
+        Y[dim(At(x))] .= bandpass(X[dim(At(x))]; kwargs...)
+    end
+    return Y
+end
+
+thetafilter(args...; pass=[2, 8], kwargs...) = bandpass(args...; pass, kwargs...)
+gammafilter(args...; pass=[30, 150], kwargs...) = bandpass(args...; pass, kwargs...)
