@@ -4,6 +4,7 @@ using IntervalSets
 using HDF5
 using Statistics
 using DSP
+using FFTW
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -315,7 +316,28 @@ function alignlfp(session, X, ::Val{:gabors}; x_position=nothing, y_position=not
     return _X
 end
 
-alignlfp(session, X, stimulus="gabors"; kwargs...) = alignlfp(session, X, stimulus|>Symbol|>Val; kwargs...)
+"""
+For flashes alignment, `trail=false` will return only the data from within the flash period. `trail=onset` will return the data from the onset of the flash to the onset of the flash through to the onset of the next flash. `trail=offset` will return the data from the offset of the flash to the onset of the next flash.
+"""
+function alignlfp(session, X, ::Val{:flashes}; trail=true)
+    is = stimulusintervals(session, "flashes")
+    if trail == :onset
+        onsets = is.start_time
+        is = [onsets[i]..onsets[i+1] for i in 1:length(onsets)-1]
+    elseif trail == :offset
+        offsets = is.stop_time
+        onsets = is.start_time[2:end]
+        is = [offsets[i]..onsets[i] for i in 1:length(offsets)-1]
+    else
+        is = is.interval
+    end
+    X = rectifytime(X)
+    _X = [X[Ti(g)] for g in is]
+    _X = [x[1:minimum(size.(_X, Ti)), :] for x in _X] # Catch any that are one sample too long
+    return _X
+end
+
+alignlfp(session, X, stimulus::Union{String, Symbol}="gabors"; kwargs...) = alignlfp(session, X, stimulus|>Symbol|>Val; kwargs...)
 
 
 
@@ -340,3 +362,70 @@ end
 
 thetafilter(args...; pass=[2, 8], kwargs...) = bandpass(args...; pass, kwargs...)
 gammafilter(args...; pass=[30, 150], kwargs...) = bandpass(args...; pass, kwargs...)
+
+
+"""
+Detect time series with strong theta events in the first hald. We will call these 'theta events'
+"""
+function thetafeature(x::AbstractVector, fs; pass=4..6)#, harmonics=4)
+    if pass isa Interval
+        pass = [pass]
+    end
+    # if harmonics > 0 # also count the harmonics of pass. Useful for highly nonlinear signals
+    #     pass = [(minimum(pass[1])*i)..(maximum(pass[1])*(i+1)) for i = 1:harmonics]
+    # end
+    x = x[1:round(Int, length(x)/2)]
+    𝐟 = rfftfreq(length(x), fs)
+    x̂ = rfft(x|>collect)
+    P = abs.(x̂).^2
+    idxs = [𝐟 .∈ (p,) for p in pass]
+    idxs = reduce((x, y)->x .| y, idxs)
+    return sum(P[idxs])/sum(P) # Proportion of power in the theta band
+end
+
+function thetafeature(x::LFPVector; kwargs...)
+    fs = 1.0/step(dims(x, Ti))
+    thetafeature(x, fs; kwargs...)
+end
+
+
+
+"""
+Calculate a feature profile for each channel in each region
+"""
+function stimuluspartition(session, probeids, structures, stim; inbrain=200, times, kwargs...)
+    Y = Vector{AbstractVector}([])
+    for p in eachindex(probeids)
+        X = getlfp(session, probeids[p], structures[p]; inbrain, times) |> rectifytime
+        X = alignlfp(session, X, stim; kwargs...)
+        push!(Y, X)
+    end
+    return Y
+end
+
+function spontaneouspartition(session, probeids, structures, duration; inbrain=200)
+    epoch = getepochs(session, "spontaneous")[1, :]
+    times = epoch.start_time..epoch.stop_time
+    Y = Vector{AbstractVector}([])
+    for p in eachindex(probeids)
+        X = getlfp(session, probeids[p], structures[p]; inbrain, times) |> rectifytime
+        _X = []
+        t = minimum(dims(X, Ti))
+        while t + duration < maximum(dims(X, Ti))
+            push!(_X, X[Ti(t..(t+duration))])
+            t += duration
+        end
+        push!(Y, _X)
+    end
+    return Y
+end
+
+
+"""
+Calculate the thetafeature for each stimulus presentation
+"""
+function thetafeature(Y::Vector{AbstractVector}) # Input formatted as stimuluspartition()
+    t = [[mean([mean(dims(c, Ti)) for c in eachcol(s)]) for s in y] for y in Y]
+    F = [[mean([thetafeature(c) for c in eachcol(s)]) for s in y] for y in Y]
+    return F, t
+end
