@@ -5,6 +5,7 @@ using HDF5
 using Statistics
 using DSP
 using FFTW
+using DelayEmbeddings
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -367,21 +368,31 @@ gammafilter(args...; pass=[30, 150], kwargs...) = bandpass(args...; pass, kwargs
 """
 Detect time series with strong theta events in the first hald. We will call these 'theta events'
 """
-function thetafeature(x::AbstractVector, fs; pass=4..6)#, harmonics=4)
-    if pass isa Interval
-        pass = [pass]
-    end
-    # if harmonics > 0 # also count the harmonics of pass. Useful for highly nonlinear signals
-    #     pass = [(minimum(pass[1])*i)..(maximum(pass[1])*(i+1)) for i = 1:harmonics]
-    # end
-    x = x[1:round(Int, length(x)/2)]
-    𝐟 = rfftfreq(length(x), fs)
-    x̂ = rfft(x|>collect)
-    P = abs.(x̂).^2
-    idxs = [𝐟 .∈ (p,) for p in pass]
-    idxs = reduce((x, y)->x .| y, idxs)
-    return sum(P[idxs])/sum(P) # Proportion of power in the theta band
+# function bandthetafeature(x::AbstractVector, fs; pass=4..6)#, harmonics=4)
+#     if pass isa Interval
+#         pass = [pass]
+#     end
+#     # if harmonics > 0 # also count the harmonics of pass. Useful for highly nonlinear signals
+#     #     pass = [(minimum(pass[1])*i)..(maximum(pass[1])*(i+1)) for i = 1:harmonics]
+#     # end
+#     x = x[1:round(Int, length(x)/2)]
+#     𝐟 = rfftfreq(length(x), fs)
+#     x̂ = rfft(x|>collect)
+#     P = abs.(x̂).^2
+#     idxs = [𝐟 .∈ (p,) for p in pass]
+#     idxs = reduce((x, y)->x .| y, idxs)
+#     return sum(P[idxs])/sum(P) # Proportion of power in the theta band
+# end
+
+"""
+Detect time series with strong theta events using the automutual information
+"""
+function thetafeature(x::AbstractVector, fs=nothing; τ=50, durprop=0.5)
+    # ! fs not implemented. τ in time steps
+    x = x[1:round(Int, length(x)*durprop)]
+    return selfmutualinfo(x, [τ]) |> first
 end
+
 
 function thetafeature(x::LFPVector; kwargs...)
     fs = 1.0/step(dims(x, Ti))
@@ -424,8 +435,8 @@ end
 """
 Calculate the thetafeature for each stimulus presentation
 """
-function thetafeature(Y::Vector{AbstractVector}) # Input formatted as stimuluspartition()
+function thetafeature(Y::Vector{AbstractVector}; kwargs...) # Input formatted as stimuluspartition()
     t = [[mean([mean(dims(c, Ti)) for c in eachcol(s)]) for s in y] for y in Y]
-    F = [[mean([thetafeature(c) for c in eachcol(s)]) for s in y] for y in Y]
+    F = [[mean([thetafeature(c; kwargs...) for c in eachcol(s)]) for s in y] for y in Y]
     return F, t
 end
