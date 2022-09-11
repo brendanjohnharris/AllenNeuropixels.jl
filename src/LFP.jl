@@ -436,7 +436,11 @@ end
 Calculate the thetafeature for each stimulus presentation
 """
 function thetafeature(Y::Vector{AbstractVector}; kwargs...) # Input formatted as stimuluspartition()
-    t = [[mean([mean(dims(c, Ti)) for c in eachcol(s)]) for s in y] for y in Y]
-    F = [[mean([thetafeature(c; kwargs...) for c in eachcol(s)]) for s in y] for y in Y]
+    t = [[([mean(dims(c, Ti)) for c in eachcol(s)]) for s in y] for y in Y]
+    F = [[([thetafeature(c; kwargs...) for c in eachcol(s)]) for s in y] for y in Y]
     return F, t
 end
+
+# function meanfeature(Y::AbstractVector{AbstractVector{AbstractVector}})
+#     [[([mean(dims(c, Ti)) for c in eachcol(s)]) for s in y] for y in Y]
+# end
