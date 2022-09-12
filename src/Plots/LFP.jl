@@ -177,16 +177,18 @@ function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=
     #c = 0.0#0.1*mean(diff.(extrema.(eachcol(X)).|>collect))[1]
     # c = offset*mean(diff.(extrema.(eachslice(X, dim=Dim{:channel})).|>collect))[1]
     #data = [(inc += (c + minimum(X[:, i] .- X[:, i+1])[1]); X[:, i] .+ inc) for i ∈ 1:size(X, 2)-1]
+    X = X .- minimum.(eachcol(X))'
+    channels = dims(X, Dim{:channel})
     c = zeros(size(X, Dim{:channel}))
     for i in 2:size(X, Dim{:channel})
-        y = X[:, i]
-        x = X[:, i-1]
-        c[i] = c[i-1] - maximum(x) + minimum(y)
+        c[i] =  c[i-1] + maximum(X[:, i-1] .- X[:, i]) + offset * mean(X)
     end
-    c = c .* offset
+    display(diff(c))
     data = [X[:, i] .+ c[i] for i ∈ 1:size(X, 2)]
-    fig = Figure(); ax = Axis(fig[1, 1], xlabel="time (s)", ylabel="channel", yticklabelsvisible=false, yticksvisible=false); Makie.lines!.((ax,), (dims(X, Ti)|>collect,), data|>collect; kwargs...)
-
+    fig = Figure(); ax = Axis(fig[1, 1], xlabel="time (s)", ylabel="channel", yticklabelsvisible=true, yticksvisible=false); Makie.lines!.((ax,), (dims(X, Ti)|>collect,), data|>collect; kwargs...)
+    # hlines!(ax, c)
+    ax.yticks = (mean.(data), string.(channels))
+    ax.yticklabelrotation = π/2
 
     if stimulus isa DataFrame
         stimulusvlines!(ax, X, stimulus; stimcolor)
@@ -214,4 +216,13 @@ function stimulusvlines!(ax, X, stimulus; stimcolor=nothing)
         Makie.vlines!(ax, starts, color=:green, linewidth=5)
         Makie.vlines!(ax, stops, color=:red, linewidth=5)
     end
+end
+
+
+
+function regiontraces(X::AN.LFPMatrix; kwargs...)
+    channels = dims(X, Dim{:channel}) |> collect
+    structures = AN.getstructureacronyms(channels)
+    fig, ax = stackedtraces(X; kwargs...)
+    ax.yticks = (ax.yticks.val[1], structures)
 end
