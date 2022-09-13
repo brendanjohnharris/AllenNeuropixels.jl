@@ -22,7 +22,7 @@ getspikeamplitudes(S::AbstractSession) = S.pyObject.spike_amplitudes
 function getspiketimes(S::AbstractSession, structure::String)
     unitstructs = getunitmetrics(S)
     unitids = unitstructs[unitstructs.structure_acronym .== structure, :].unit_id
-    spiketimes = filter(p -> p[1] in unitids, AN.getspiketimes(S))
+    spiketimes = filter(p -> p[1] in unitids, getspiketimes(S))
 end
 
 function getspiketimes(S::AbstractSession, unitids::Vector{Int})

@@ -365,6 +365,36 @@ thetafilter(args...; pass=[2, 8], kwargs...) = bandpass(args...; pass, kwargs...
 gammafilter(args...; pass=[30, 150], kwargs...) = bandpass(args...; pass, kwargs...)
 
 
+
+
+
+# harmonicbandpass(; kwargs...) = x -> harmonicbandpass(x; kwargs...)
+
+# function harmonicbandpass(x::LFPVector; pass, harmonics=10)
+#     t = dims(x, Ti)
+#     T = t isa AbstractRange ? step(t) : t |> collect |> diff |> mean
+#     fs = 1.0/T
+#     _pass = [Tuple((i-1).*pass[1] .+ pass) for i in 1:harmonics]
+#     display(_pass)
+#     # ..................then also need the stop bands..............
+#     y = filtfilt(remez(35, [p => 1 for p in _pass]; Hz=fs), collect(x))
+#     return DimArray(y, dims(x))
+# end
+
+# function bandpass(X::LFPMatrix, dim=Dim{:channel}; kwargs...)
+#     Y = similar(X)
+#     Threads.@threads for x in dims(X, dim)
+#         Y[dim(At(x))] .= bandpass(X[dim(At(x))]; kwargs...)
+#     end
+#     return Y
+# end
+
+# harmonicthetafilter(args...; pass=[4, 6], kwargs...) = harmonicbandpass(args...; pass, kwargs...)
+
+
+
+
+
 """
 Detect time series with strong theta events in the first hald. We will call these 'theta events'
 """
