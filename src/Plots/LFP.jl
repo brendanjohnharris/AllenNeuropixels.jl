@@ -188,7 +188,7 @@ function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=
     fig = Figure(); ax = Axis(fig[1, 1], xlabel="time (s)", ylabel="channel", yticklabelsvisible=true, yticksvisible=false); Makie.lines!.((ax,), (dims(X, Ti)|>collect,), data|>collect; kwargs...)
     # hlines!(ax, c)
     ax.yticks = (mean.(data), string.(channels))
-    ax.yticklabelrotation = π/2
+    ax.yticklabelrotation = 0 # π/2
 
     if stimulus isa DataFrame
         stimulusvlines!(ax, X, stimulus; stimcolor)
