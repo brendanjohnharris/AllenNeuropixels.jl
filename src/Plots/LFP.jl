@@ -171,29 +171,40 @@ end
 export plotLFPspectra
 
 
-
-function stackedtraces(X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=nothing, kwargs...)
+function stackedtraces!(ax::Axis, X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=nothing, kwargs...)
     inc = 0
     #c = 0.0#0.1*mean(diff.(extrema.(eachcol(X)).|>collect))[1]
     # c = offset*mean(diff.(extrema.(eachslice(X, dim=Dim{:channel})).|>collect))[1]
     #data = [(inc += (c + minimum(X[:, i] .- X[:, i+1])[1]); X[:, i] .+ inc) for i ∈ 1:size(X, 2)-1]
     X = X .- minimum.(eachcol(X))'
     channels = dims(X, Dim{:channel})
-    c = zeros(size(X, Dim{:channel}))
-    for i in 2:size(X, Dim{:channel})
-        c[i] =  c[i-1] + maximum(X[:, i-1] .- X[:, i]) + offset * mean(X)
+
+    if isnothing(offset)
+        X = X./(maximum.(eachcol(X))' .- minimum.(eachcol(X))')
+        c = 1:size(X, Dim{:channel})
+    else
+        c = zeros(size(X, Dim{:channel}))
+        for i in 2:size(X, Dim{:channel})
+            c[i] =  c[i-1] + maximum(X[:, i-1] .- X[:, i]) + offset * mean(X)
+        end
     end
-    display(diff(c))
     data = [X[:, i] .+ c[i] for i ∈ 1:size(X, 2)]
-    fig = Figure(); ax = Axis(fig[1, 1], xlabel="time (s)", ylabel="channel", yticklabelsvisible=true, yticksvisible=false); Makie.lines!.((ax,), (dims(X, Ti)|>collect,), data|>collect; kwargs...)
+    Makie.lines!.((ax,), (dims(X, Ti)|>collect,), data|>collect; kwargs...)
     # hlines!(ax, c)
     ax.yticks = (mean.(data), string.(channels))
     ax.yticklabelrotation = 0 # π/2
-
+    ax.xlabel="time (s)"
+    ax.ylabel="channel"
+    ax.yticklabelsvisible=true
+    ax.yticksvisible=false
     if stimulus isa DataFrame
         stimulusvlines!(ax, X, stimulus; stimcolor)
     end
+end
 
+function stackedtraces(X::AN.LFPMatrix; kwargs...)
+    fig = Figure(); ax = Axis(fig[1, 1]);
+    stackedtraces!(ax, X; kwargs...)
     display(fig); (fig, ax)
 end
 
