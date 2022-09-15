@@ -6,6 +6,7 @@ using Statistics
 using DSP
 using FFTW
 using DelayEmbeddings
+using MultivariateStats
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -474,3 +475,18 @@ end
 # function meanfeature(Y::AbstractVector{AbstractVector{AbstractVector}})
 #     [[([mean(dims(c, Ti)) for c in eachcol(s)]) for s in y] for y in Y]
 # end
+
+
+function ica(X::LFPMatrix, k=ceil(Int, size(X, 2)/2))
+    I = fit(ICA, collect(X)', k; maxiter=1000)
+    _X = DimArray(predict(I, collect(X)')', (dims(X, Ti), Dim{:channel}(1:size(I, 2))))
+end
+
+function pca(X::LFPMatrix)
+    P = fit(PCA, collect(X)')
+    _X = DimArray(predict(P, collect(X)')', (dims(X, Ti), Dim{:channel}(1:size(P, 2))))
+    v = principalvars(P)
+    return _X, v
+end
+
+DSP.hilbert(X::LFPMatrix) = mapslices(hilbert, X, dims=Ti)

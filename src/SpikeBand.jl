@@ -181,7 +181,7 @@ alignspiketimes(session, X, stimulus="flashes"; kwargs...) = alignspiketimes(ses
 
 
 function countspikes(ts::AbstractVector, T::Real)
-    # ts shoudl be sorted
+    # ts should be sorted
     ts = deepcopy(ts)
     m = maximum(ts)
     _t = minimum(ts)
@@ -202,7 +202,7 @@ end
 
 function defaultfanobins(ts)
     maxwidth = (first∘diff∘collect∘extrema)(ts)/10
-    minwidth = max((mean∘diff)(ts), maxwidth/500)
+    minwidth = max((mean∘diff)(ts), maxwidth/10000)
     # spacing = minwidth
     return 10.0.^range(log10(minwidth), log10(maxwidth); length=100)
 end
