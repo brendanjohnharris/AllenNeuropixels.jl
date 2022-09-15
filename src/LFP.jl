@@ -7,6 +7,8 @@ using DSP
 using FFTW
 using DelayEmbeddings
 using MultivariateStats
+using Wavelets
+using ContinuousWavelets
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -205,12 +207,12 @@ function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
     LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
 end
 
-function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp")
+function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp", n = 1)
     session = Session(sessionid)
     if isnothing(structure)
         structure = getchannels(session, probeid).id |> getstructureacronyms |> unique |> skipmissing |> collect |> Vector{String}
     end
-    epoch = getepochs(session, stimulus)[1, :]
+    epoch = getepochs(session, stimulus)[n, :]
     times = epoch.start_time..epoch.stop_time
     X = getlfp(session, probeid, structure; inbrain=200, times) |> rectifytime
     X = sortbydepth(session, probeid, X)
@@ -274,7 +276,7 @@ function rectifytime(X::AbstractDimArray; tol=5) # tol gives significant figures
     else
         step = round(step; sigdigits=tol)
         t0, t1 = round.(extrema(times); sigdigits=tol+1)
-        times = t0:step:t1+step
+        times = t0:step:t1+(10*step)
         times = times[1:size(X, Ti)] # Should be ok?
     end
     @assert length(times) == size(X, Ti)
@@ -490,3 +492,18 @@ function pca(X::LFPMatrix)
 end
 
 DSP.hilbert(X::LFPMatrix) = mapslices(hilbert, X, dims=Ti)
+
+
+
+function wavelettransform(x::LFPVector; moth=Morlet(π), β=4, Q=32)
+    x = rectifytime(x)
+    c = wavelet(moth; β, Q);
+    res = abs.(ContinuousWavelets.cwt(x, c))
+    t = dims(x, Ti) |> collect
+    n = length(t)
+    fs = 1.0./step(dims(x, Ti)) # Assume rectified time dim
+    W = ContinuousWavelets.computeWavelets(n, wavelet(moth; β, Q);)[1]
+    freqs = getMeanFreq(W, fs)
+    freqs[1] = 0
+    return DimArray(res, (Ti(t), Dim{:𝑓}(freqs)))
+end
