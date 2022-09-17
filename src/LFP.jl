@@ -132,7 +132,6 @@ function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(
     if isinvalidtime(session, probeid, times)
         @error "Requested LFP data contains an invalid time..."
     end
-
     if inbrain isa Symbol || inbrain isa Real || inbrain
         depths = getchanneldepths(session, probeid, channels)
         if inbrain isa Real # A depth cutoff
@@ -341,6 +340,16 @@ function alignlfp(session, X, ::Val{:flashes}; trail=true)
     return _X
 end
 
+# """
+# For spontaneous alignment, we take each whole spontaneous interval as a trial
+# """
+# function alignlfp(session, X, ::Val{:spontaneous})
+#     is =stimulusintervals(session, "spontaneous").interval
+#     X = rectifytime(X)
+#     _X = [X[Ti(g)] for g in is]
+#     return _X
+# end
+
 alignlfp(session, X, stimulus::Union{String, Symbol}="gabors"; kwargs...) = alignlfp(session, X, stimulus|>Symbol|>Val; kwargs...)
 
 
@@ -437,8 +446,9 @@ end
 """
 Calculate a feature profile for each channel in each region
 """
-function stimuluspartition(session, probeids, structures, stim; inbrain=200, times, kwargs...)
+function stimuluspartition(session, probeids, structures, stim; inbrain=200, times=nothing, kwargs...)
     Y = Vector{AbstractVector}([])
+    stim == "spontaneous" && return spontaneouspartition(session, probeids, structures; inbrain=200, kwargs...)
     for p in eachindex(probeids)
         X = getlfp(session, probeids[p], structures[p]; inbrain, times) |> rectifytime
         X = alignlfp(session, X, stim; kwargs...)
@@ -447,8 +457,31 @@ function stimuluspartition(session, probeids, structures, stim; inbrain=200, tim
     return Y
 end
 
+function spontaneouspartition(session, probeids, structures; inbrain=200, mindur=30, kwargs...)
+    times = stimulusintervals(session, "spontaneous").interval
+    idxs = (diff.(extrema.(times).|>collect).|>first) .> mindur
+    Y = Vector{AbstractVector}([])
+    for p in eachindex(probeids)
+        @info "Loading LFP for probe $p"
+        X = []
+        for (i, t) in enumerate(times)
+            try
+                _X = getlfp(session, probeids[p], structures[p]; inbrain, times=t) |> rectifytime
+                push!(X, _X)
+            catch e # Invalid interval, somehow
+                @warn "Bad LFP for this probe at this time"
+                _X = []
+                push!(X, _X)
+            end
+        end
+        push!(Y, X)
+    end
+    return Y
+end
+
+
 function spontaneouspartition(session, probeids, structures, duration; inbrain=200)
-    epoch = getepochs(session, "spontaneous")[1, :]
+    epoch = getepochs(session, "spontaneous")[2, :]
     times = epoch.start_time..epoch.stop_time
     Y = Vector{AbstractVector}([])
     for p in eachindex(probeids)
