@@ -254,6 +254,17 @@ function getchanneldepths(session, probeid, X::LFPMatrix)
     getchanneldepths(session, probeid, channels)
 end
 
+function getunitdepths(session, probeid, units)
+    metrics = getunitanalysismetrics(session)
+    check = all(units .∈ (metrics.ecephys_unit_id,))
+    if !check
+        @error "Some units do not have corresponding metrics"
+    end
+    metrics = subset(metrics, :ecephys_unit_id, units)
+    channels = metrics.ecephys_channel_id
+    getchanneldepths(session, probeid, channels)
+end
+
 getdim(X::AbstractDimArray, dim) = dims(X, dim).val
 gettimes(X::AbstractDimArray) = getdim(X, Ti)
 
