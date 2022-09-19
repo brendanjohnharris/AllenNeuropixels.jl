@@ -233,3 +233,10 @@ function getfano(metrics::DataFrame, stimulus)
     sesh = metricmap(stimulus)
     return metrics[:, Symbol(reduce(*, string.([:fano_, sesh])))]
 end
+
+function findvalidunits(session, probeid, units; kwargs...)
+    units = collect(units)
+    metrics = getunitanalysismetrics(session; filter_by_validity=true, kwargs...)
+    check = units .∈ (metrics.ecephys_unit_id,)
+    return units[check]
+end

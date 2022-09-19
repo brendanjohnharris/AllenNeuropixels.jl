@@ -28,6 +28,8 @@ module Plots
     end
     exporthtml = htmlexport
 
+    Makie.convert_arguments(x::AN.LFPVector) = (dims(x, Ti), x|>Array)
+
     include("./ReferenceAtlas.jl")
     include("./LFP.jl")
     include("SpikeBand.jl")
