@@ -133,6 +133,7 @@ function subset(d::DataFrame, col, vals::AbstractVector)
     idxs = indexin(vals, d[:, col])
     return d[idxs, :]
 end
+subset(d::DataFrame, col, vals::Base.KeySet) = subset(d, col, collect(vals))
 subset(d::DataFrame, col, vals::Dim) = subset(d, col, collect(vals))
 subset(d::DataFrame, col, vals::DataFrame) = subset(d, col, vals[:, col])
 function subset(d::DataFrame, col, val)
@@ -234,9 +235,38 @@ function getfano(metrics::DataFrame, stimulus)
     return metrics[:, Symbol(reduce(*, string.([:fano_, sesh])))]
 end
 
-function findvalidunits(session, probeid, units; kwargs...)
+function findvalidunits(session, units; kwargs...)
     units = collect(units)
     metrics = getunitanalysismetrics(session; filter_by_validity=true, kwargs...)
     check = units .∈ (metrics.ecephys_unit_id,)
     return units[check]
+end
+
+function findvalidunits(session, spikes::Dict)
+    units = findvalidunits(session, keys(spikes))
+    return Dict(units .=> getindex.((spikes,), units))
+end
+
+
+function lfpspikesimilarity(X::LFPVector, Y::Vector; normalize=identity)
+    ts = Interval(extrema(dims(X, Ti))...)
+    Y = Y[Y .∈ (ts,)]
+    X = normalize(X)
+    return mean(X[Ti(Near(Y))]) # Mean value of the LFP at each spike time
+end
+
+function lfpspikesimilarity(session, probeid, X::LFPMatrix, Y::Dict; normalize=identity, kwargs...)
+    X = normalize(X)
+    spikes = values(Y) |> collect
+    units = keys(Y) |> collect
+    # * First, match up the units to their nearest LFPs
+    depths = getchanneldepths(session, probeid, X)
+    idxs = sortperm(depths)
+    X = X[:, idxs]
+    depths = depths[idxs]
+    X = DimArray(X, (dims(X, Ti), Dim{:depth}(depths)))
+    unitdepths = getunitdepths(session, probeid, units)
+    X = X[Dim{:depth}(Near(unitdepths))] # Sorted in order of spikes
+    sims = [lfpspikesimilarity(X[:, i], spikes[i]; kwargs...) for i in eachindex(spikes)]
+    return Dict(units .=> sims)
 end

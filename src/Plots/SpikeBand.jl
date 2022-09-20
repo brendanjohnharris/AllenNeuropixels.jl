@@ -60,16 +60,16 @@ end
 
 
 
-function plotspikebursts!(ax, session, probeid, X::AN.LFPMatrix, Y::Dict; marker=:vline, colormap=:turbo, markercolor=:white, markersize=20, maxn=20000, kwargs...)
+function plotspikebursts!(ax, session, probeid, X::AN.LFPMatrix, Y::Dict; marker=:vline, colormap=:turbo, markercolor=:red, markersize=15, maxn=min(size(X, 1), 20000), kwargs...)
     X = X[1:maxn, :]
     subt = Interval(extrema(dims(X, Ti))...)
     depths = AN.getchanneldepths(session, probeid, dims(X, Dim{:channel})|>collect)
-    heatmap!(ax, collect(dims(X, Ti)), depths, X.data; color=colormap)
+    heatmap!(ax, collect(dims(X, Ti)), depths, X.data; colormap)
     ax.yreversed = true
     # ax.yticks = (1:size(X, Dim{:channel}), string.(depths))
 
     # * Plot spikes based on unit center
-    units = AN.findvalidunits(session, probeid, keys(Y))
+    units = AN.findvalidunits(session, keys(Y)|>collect)
     times = getindex.((Y,), units)
     times = [t[t .∈ (subt,)] for t in times]
     unitdepths = AN.getunitdepths(session, probeid, units)
@@ -88,8 +88,12 @@ function plotspikebursts!(ax, session, probeid, X::AN.LFPMatrix, Y::Dict; marker
     # times = times[length.(times) .> 0]
     # times = Vector{Vector}(times)
     # lines!(ax, dims(X, Ti)|>collect, collect(length(times).*(X.-minimum(X))./(maximum(X) - minimum(X))); color=linecolor)
-
-    # spy!(ax, unitdepths, times; color=markercolor, marker, markersize)
+    # display(unique(unitdepths))
+    # * Jitter neuron depths
+    unitdepths = unitdepths .+ randn(length(unitdepths)).*10
+    hlines!(ax, unitdepths; color=:white, linewidth=1)
+    spy!(ax, unitdepths, times; color=:white, marker, markersize=markersize+5)
+    spy!(ax, unitdepths, times; color=markercolor, marker, markersize)
     ax.xlabel = "Time (s)"
     ax.ylabel = "Depth (μm)"
 end
