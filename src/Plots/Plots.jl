@@ -28,7 +28,8 @@ module Plots
     end
     exporthtml = htmlexport
 
-    Makie.convert_arguments(x::AN.LFPVector) = (dims(x, Ti), x|>Array)
+    Makie.convert_arguments(x::AN.LFPVector) = (dims(x, Ti)|>collect, x|>Array)
+    Makie.convert_single_argument(x::AN.LFPVector) = (dims(x, Ti)|>collect, x|>Array)
 
     include("./ReferenceAtlas.jl")
     include("./LFP.jl")

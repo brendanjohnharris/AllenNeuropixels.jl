@@ -536,6 +536,7 @@ function pca(X::LFPMatrix)
 end
 
 DSP.hilbert(X::LFPMatrix) = mapslices(hilbert, X, dims=Ti)
+DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims(X))
 
 
 
