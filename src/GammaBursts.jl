@@ -1,5 +1,6 @@
 using StatsBase
 using ImageMorphology
+using LsqFit
 
 WaveletMatrix = dimmatrix(Ti, :𝑓) # Type for DimArrays containing wavelet transform info
 export WaveletMatrix
@@ -11,12 +12,17 @@ Base.@kwdef mutable struct Burst <: AbstractBurst
     mask::WaveletMatrix
     thresh
     peak = nothing
+    fit = nothing
     width = nothing
     significance = nothing
 end
 
 Burst(mask, thresh; kwargs...) = Burst(; mask, thresh, kwargs...)
 Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
+
+duration(B::Burst) = B.fit.param[4]
+spectralwidth(B::Burst) = B.fit.param[5]
+binarymask(B::Burst) = B.mask .> B.thresh[1]
 
 function threshold(res, thresh, mode)
     if mode == :percentile
@@ -39,10 +45,13 @@ burstthreshold(res::WaveletMatrix, thresh; kwargs...) = (y = deepcopy(res); burs
 """
 Detect bursts from a supplied wavelet spectrum, using thresholding
 """
-function detectbursts(res::WaveletMatrix, thresh=99; mode=:percentile)
+function detectbursts(res::WaveletMatrix, thresh=99.5; mode=:percentile, areacutoff=1)
+    # ! WILL NEED TO REFINE THIS
     _res = burstthreshold(res, thresh; mode) .> 0
     # Get the connected component masks
     components = ImageMorphology.label_components(_res|>Array)
+    areas = ImageMorphology.component_lengths(components)
+    idxs = areas .≥ areacutoff
     centroids = ImageMorphology.component_centroids(components)
     centroids = [round.(Int, c) for c in centroids]
     𝑓 = dims(res, Dim{:𝑓})
@@ -50,7 +59,7 @@ function detectbursts(res::WaveletMatrix, thresh=99; mode=:percentile)
     peaks = [(t[c[1]], 𝑓[c[2]]) for c in centroids]
     peaks = [(p[1], p[2], res[Ti(At(p[1])), Dim{:𝑓}(At(p[2]))]) for p in peaks]
     masks = burstmask.((res,), peaks)
-    return Burst.(masks, ((thresh, mode),), peaks)
+    return Burst.(masks, ((minimum(res[_res]), mode, thresh),), peaks)[idxs]
 end
 
 
@@ -59,6 +68,49 @@ function detectbursts(x::LFPVector; pass=[30, 100], kwargs...)
     res = wavelettransform(γ; kwargs...)
     detectbursts(res)
 end
+
+function fit!(B::Burst)
+    mask = B.mask
+    B.fit = fitdiagonalgaussian(mask)
+end
+
+function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
+    x, y, Z = collect.((x, y, Z))
+    xy = hcat(collect.(Iterators.product(x, y))...)'
+    z = Z[:]
+    function gaussian2(xy, p)
+        x, y = eachcol(xy)
+        A, μ₁, μ₂, σ₁, σ₂ = p
+        y = A.*exp.(-0.5.*(((x .- μ₁)./σ₁).^2 .+ ((y .- μ₂)./σ₂).^2))
+    end
+    p0 = [  maximum(Z), # A
+            mean(x), # μ₁
+            mean(y), # μ₂
+            (x |> diff |> collect |> extrema |> first)/2, # σ₁
+            (y |> diff |> collect |> extrema |> first)/2] # σ₂
+    fit = LsqFit.curve_fit(gaussian2, xy, z, p0)
+end
+
+function fitdiagonalgaussian(mask::AbstractDimArray)
+    𝑓 = dims(mask, 2)
+    t = dims(mask, 1)
+    f = fitdiagonalgaussian(t, 𝑓, mask|>Array)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # """
 # Get a sufficient image of a burst from an entire wavelet spectrum. A threshold at which the power is 1% of the peak power should suffice, but really the threshold should just be small enough for the exact value not to matter.
