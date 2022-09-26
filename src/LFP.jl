@@ -9,6 +9,7 @@ using DelayEmbeddings
 using MultivariateStats
 using Wavelets
 using ContinuousWavelets
+using TimeseriesSurrogates
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -553,4 +554,21 @@ function wavelettransform(x::LFPVector; moth=Morlet(2π), β=4, Q=64)
     freqs = getMeanFreq(W, fs)
     freqs[1] = 0
     return DimArray(res, (Ti(t), Dim{:𝑓}(freqs)))
+end
+
+
+TimeseriesSurrogates.surrogate(x::LFPVector, S::Surrogate; kwargs...) = (y = deepcopy(x); y .= surrogate(x|>collect.|>Float64, S; kwargs...).|>eltype(y); y)
+
+function TimeseriesSurrogates.surrogenerator(x::LFPVector, S::IAAFT)
+    sg = surrogenerator(x|>collect.|>Float64, S)
+    return ()->DimArray(sg().|>eltype(x), dims(x))
+end
+function TimeseriesSurrogates.surrogenerator(X::LFPMatrix, S::IAAFT)
+    sg = [surrogenerator(x|>collect.|>Float64, S) for x in eachcol(X)]
+    function out()
+        Y = deepcopy(X)
+        [y .= s().|>eltype(X) for (s, y) in zip(sg, eachcol(Y))]
+        return Y
+    end
+    return out
 end
