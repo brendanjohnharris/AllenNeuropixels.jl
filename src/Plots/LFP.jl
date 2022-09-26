@@ -171,8 +171,9 @@ end
 export plotLFPspectra
 
 
-function stackedtraces!(ax::Axis, X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=nothing, kwargs...)
+function stackedtraces!(ax::Axis, X::AN.LFPMatrix; offset=0.5, stimulus=nothing, stimcolor=nothing, rev=false, kwargs...)
     inc = 0
+    rev && (X = -X)
     #c = 0.0#0.1*mean(diff.(extrema.(eachcol(X)).|>collect))[1]
     # c = offset*mean(diff.(extrema.(eachslice(X, dim=Dim{:channel})).|>collect))[1]
     #data = [(inc += (c + minimum(X[:, i] .- X[:, i+1])[1]); X[:, i] .+ inc) for i ∈ 1:size(X, 2)-1]
@@ -200,6 +201,7 @@ function stackedtraces!(ax::Axis, X::AN.LFPMatrix; offset=0.5, stimulus=nothing,
     if stimulus isa DataFrame
         stimulusvlines!(ax, X, stimulus; stimcolor)
     end
+    rev && (ax.yreversed = true)
 end
 
 function stackedtraces(X::AN.LFPMatrix; kwargs...)
@@ -237,3 +239,7 @@ function regiontraces(X::AN.LFPMatrix; kwargs...)
     fig, ax = stackedtraces(X; kwargs...)
     ax.yticks = (ax.yticks.val[1], structures)
 end
+
+
+Makie.heatmap!(ax, B::AN.Burst; kwargs...) = heatmap!(ax, dims(B.mask, Ti)|>collect, dims(B.mask, Dim{:𝑓})|>collect, B.mask|>Array; kwargs...)
+Makie.heatmap(B::AN.Burst; kwargs...) = (ax = Axis(Figure()[1, 1]); heatmap!(ax, B; kwargs...); current_figure())
