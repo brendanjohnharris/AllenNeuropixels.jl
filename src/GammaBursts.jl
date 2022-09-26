@@ -33,22 +33,21 @@ function threshold(res, thresh, mode)
 end
 
 """
-Threshold a wavelet spectrum using either a percentile cutoff (`mode=:percentile`) or a standard deviation cutoff (`mode=:std`)
+Threshold a wavelet spectrum using either a percentile cutoff (`mode=:percentile`) or a standard deviation cutoff (`mode=:std`) of either each frequency band (`eachfreq=true`) or the entire spectrum.
 """
-function burstthreshold!(res::WaveletMatrix, thresh; mode=:percentile)
-    cutoff = threshold(res, thresh, mode)
-    res[res .< cutoff] .= 0.0
+function burstthreshold!(res::WaveletMatrix, thresh; mode=:percentile, eachfreq=true)
+    if eachfreq
+        cutoffs = threshold.(eachcol(res), thresh, mode)
+    else
+        cutoffs = threshold(res, thresh, mode)
+    end
+    res[res .< cutoffs'] .= 0.0
 end
 
 burstthreshold(res::WaveletMatrix, thresh; kwargs...) = (y = deepcopy(res); burstthreshold!(y, thresh; kwargs...); y)
 
-"""
-Detect bursts from a supplied wavelet spectrum, using thresholding
-"""
-function detectbursts(res::WaveletMatrix, thresh=99.5; mode=:percentile, areacutoff=1)
-    # ! WILL NEED TO REFINE THIS
-    _res = burstthreshold(res, thresh; mode) .> 0
-    # Get the connected component masks
+function _detectbursts(_res::WaveletMatrix; areacutoff=1)
+# Get the connected component masks
     components = ImageMorphology.label_components(_res|>Array)
     areas = ImageMorphology.component_lengths(components)
     idxs = areas .≥ areacutoff
@@ -62,11 +61,35 @@ function detectbursts(res::WaveletMatrix, thresh=99.5; mode=:percentile, areacut
     return Burst.(masks, ((minimum(res[_res]), mode, thresh),), peaks)[idxs]
 end
 
+"""
+Detect bursts from a supplied wavelet spectrum, using thresholding
+"""
+function detectbursts(res::WaveletMatrix, thresh=99.5; mode=:percentile, kwargs...)
+    _res = burstthreshold(res, thresh; mode) .> 0
+    _detectbursts(res; kwargs...)
+end
 
-function detectbursts(x::LFPVector; pass=[30, 100], kwargs...)
+"""
+This is the preferred, surrogate-based method of detecting bursts. Assumes the surrogate will be stationary, so averages statistics over a wavelet transform of a single surrogate.
+`thresh` is in SDs
+"""
+function detectbursts(x::LFPVector; pass=[30, 100], areacutoff=1, thresh=2, kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, Ti))/minimum(pass))), N=100
+    s = surrogate(x, IAAFT())
+    # S = [s() for _ in 1:N]
+    γₛ = gammafilter(s; pass)
+    res = wavelettransform(γₛ)
+    # agg = [getindex.(res, (i,)) for i in CartesianIndices(res[1])]
+    # agg = DimArray(agg, dims(res[1]))
+    σ = mapslices(std, res, dims=1)
+    μ = mapslices(mean, res, dims=1)
+
+    # * Determine a threshold from the surrogate wavelet spectra. Lets just use SD's for simplicity
+    # * This can be done by normalizing each frequency band with the mean and SD from the surrogate
+    # .................will need to At() the wavelet values.............
+
     γ = gammafilter(x; pass)
     res = wavelettransform(γ; kwargs...)
-    detectbursts(res)
+    _detectbursts(res; areacutoff)
 end
 
 function fit!(B::Burst)
