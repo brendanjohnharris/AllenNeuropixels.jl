@@ -14,6 +14,8 @@ LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.Tim
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
 export LFPMatrix, LFPVector # For simpler dispatch
 dimmatrix(a::Symbol, b::Symbol) = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:Dim{a}, B<:Dim{b}}
+dimmatrix(a, b::Symbol) = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:a, B<:Dim{b}}
+dimmatrix(a, b) = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:a, B<:b}
 export dimmatrix
 
 PSDMatrix = dimmatrix(:𝑓, :channel)
@@ -540,7 +542,7 @@ DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims
 
 
 
-function wavelettransform(x::LFPVector; moth=Morlet(π), β=4, Q=32)
+function wavelettransform(x::LFPVector; moth=Morlet(2π), β=4, Q=64)
     x = rectifytime(x)
     c = wavelet(moth; β, Q);
     res = abs.(ContinuousWavelets.cwt(x, c))

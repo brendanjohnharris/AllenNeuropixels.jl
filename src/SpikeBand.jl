@@ -30,7 +30,8 @@ function getspiketimes(S::AbstractSession, unitids::Vector{Int})
     Dict(a => b for (a,b) in spiketimes if a in unitids)
 end
 
-function _getspikes(units, times, amplitudes, _times, bin, rectify)
+# `count` is a boolean indicating whether to return the number of spikes in each bin, or sum the amplitudes
+function _getspikes(units, times, amplitudes, _times, bin, rectify, count)
     tmax = maximum(_times)
     tmin = minimum(_times)
     times = [filter(∈(tmin..tmax), t) for t in times]
@@ -46,7 +47,7 @@ function _getspikes(units, times, amplitudes, _times, bin, rectify)
         _times = times[u]
         _amplitudes = amplitudes[u]
         for t in eachindex(_times) # Hella slow
-            spikes[Ti(Near(_times[t])), Dim{:unit}(u)] += _amplitudes[t]
+            spikes[Ti(Near(_times[t])), Dim{:unit}(u)] += (count ? 1 : _amplitudes[t])
         end
         @logprogress u/length(units)
     end
@@ -57,7 +58,7 @@ end
 """
 We combine the spike times and spike amplitudes into one sparse array, using a given bin width.
 """
-function getspikes(S, timebounds=nothing; bin=1e-4, rectify=4, structure=nothing)
+function getspikes(S, timebounds=nothing; bin=1e-4, rectify=4, structure=nothing, count=true)
     times = isnothing(structure) ? getspiketimes(S) : getspiketimes(S, structure)
     units = times |> keys |> collect
     times = times |> values |> collect
@@ -66,7 +67,7 @@ function getspikes(S, timebounds=nothing; bin=1e-4, rectify=4, structure=nothing
     @assert all(length.(times) .== length.(amplitudes))
     # Set up the sparse dim array, then allocate spikes to the nearest time index
     _times = isnothing(times) ? vcat(_times...) : timebounds
-    _getspikes(units, times, amplitudes, _times, bin, rectify)
+    _getspikes(units, times, amplitudes, _times, bin, rectify, count)
 end
 
 function getspikes(S, stimulus::String; kwargs...)
