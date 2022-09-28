@@ -241,5 +241,8 @@ function regiontraces(X::AN.LFPMatrix; kwargs...)
 end
 
 
+
+
+
 Makie.heatmap!(ax, B::AN.Burst; kwargs...) = heatmap!(ax, dims(B.mask, Ti)|>collect, dims(B.mask, Dim{:𝑓})|>collect, B.mask|>Array; kwargs...)
 Makie.heatmap(B::AN.Burst; kwargs...) = (ax = Axis(Figure()[1, 1]); heatmap!(ax, B; kwargs...); current_figure())

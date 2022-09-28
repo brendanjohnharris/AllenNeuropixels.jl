@@ -31,6 +31,13 @@ module Plots
     Makie.convert_arguments(x::AN.LFPVector) = (dims(x, Ti)|>collect, x|>Array)
     Makie.convert_single_argument(x::AN.LFPVector) = (dims(x, Ti)|>collect, x|>Array)
 
+    GeometryBasics.decompose(x::AN.DimensionalData.AbstractDimArray) = ((dims(x).|>collect)..., x|>collect)
+
+    dimname(x::AN.DimensionalData.AbstractDimArray, dim) = dims(x, dim)|>name|>string
+
+    formataxes(x::AN.DimensionalData.AbstractDimArray{T, 2} where T) = (xlabel=dimname(x, 1), ylabel=dimname(x, 2))
+    formataxes(x::AN.DimensionalData.AbstractDimArray{T, 1} where T) = (xlabel=dimname(x, 1),)
+
     include("./ReferenceAtlas.jl")
     include("./LFP.jl")
     include("SpikeBand.jl")
