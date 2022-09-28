@@ -572,3 +572,22 @@ function TimeseriesSurrogates.surrogenerator(X::LFPMatrix, S::IAAFT)
     end
     return out
 end
+
+
+
+function powerspectra(t, x, X; n=5000, window=DSP.Windows.hanning)
+    Δt = t[2] - t[1]
+    @assert all(Δt .≈ diff(t))
+    fp = x -> welch_pgram(x, n; fs=1/Δt, window)
+    P = [fp(Array(x)) for x ∈ eachcol(X)]
+    𝑓 = P[1].freq
+    psd = hcat([p.power for p ∈ P]...)
+    psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
+    psd = DimArray(psd, (Dim{:frequency}(𝑓), Dim{:channel}(x)))
+end
+
+function powerspectra(X::LFPMatrix; kwargs...)
+    t = dims(X, Ti) |> collect
+    x = dims(X, Dim{:channel}) |> collect
+    return powerspectra(t, x, X; kwargs...)
+end
