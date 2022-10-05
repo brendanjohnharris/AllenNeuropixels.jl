@@ -10,6 +10,7 @@ using MultivariateStats
 using Wavelets
 using ContinuousWavelets
 using TimeseriesSurrogates
+using HTTP
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -557,6 +558,31 @@ function wavelettransform(x::LFPVector; moth=Morlet(2π), β=4, Q=64)
 end
 
 
+function fooof(p::AbstractDimArray, freqrange=[10.0, 300.0])
+    freqs = collect(dims(p, Dim{:frequency}))
+    freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
+    spectrum = collect(p)
+    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 20.0]"o, max_n_peaks=4, aperiodic_mode="knee")
+    fm.report(freqs, spectrum, freqrange)
+    fm.add_data(freqs, spectrum, freqrange)
+    fm.fit()
+    return fm
+end
+
+function aperiodicfit(p::AbstractDimArray, args...)
+    fm = fooof(p, args...)
+    # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
+    b, k, χ = fm.aperiodic_params_
+    L = f -> b - log(k + f^χ)
+end
+
+function correctedwavelettransform(x::LFPVector; kwargs...)
+    res = wavelettransform(x)
+    psd = mean(res, dims=Ti)
+
+end
+
+
 TimeseriesSurrogates.surrogate(x::LFPVector, S::Surrogate; kwargs...) = (y = deepcopy(x); y .= surrogate(x|>collect.|>Float64, S; kwargs...).|>eltype(y); y)
 
 function TimeseriesSurrogates.surrogenerator(x::LFPVector, S::IAAFT)
@@ -574,15 +600,20 @@ function TimeseriesSurrogates.surrogenerator(X::LFPMatrix, S::IAAFT)
 end
 
 
-
-function powerspectra(t, x, X; n=5000, window=DSP.Windows.hanning)
+function powerspectra(t, X; n=5000, window=DSP.Windows.hanning)
     Δt = t[2] - t[1]
     @assert all(Δt .≈ diff(t))
     fp = x -> welch_pgram(x, n; fs=1/Δt, window)
     P = [fp(Array(x)) for x ∈ eachcol(X)]
     𝑓 = P[1].freq
     psd = hcat([p.power for p ∈ P]...)
-    psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
+    # psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
+    return 𝑓, psd
+end
+
+
+function powerspectra(t, x, X; kwargs...)
+    𝑓, psd = powerspectra(t, X; kwargs...)
     psd = DimArray(psd, (Dim{:frequency}(𝑓), Dim{:channel}(x)))
 end
 
@@ -590,4 +621,10 @@ function powerspectra(X::LFPMatrix; kwargs...)
     t = dims(X, Ti) |> collect
     x = dims(X, Dim{:channel}) |> collect
     return powerspectra(t, x, X; kwargs...)
+end
+
+function powerspectra(x::LFPVector; kwargs...)
+    t = dims(x, Ti) |> collect
+    𝑓, psd = powerspectra(t, collect(x); kwargs...)
+    psd = DimArray(psd[:], (Dim{:frequency}(𝑓),))
 end
