@@ -13,7 +13,7 @@ using IntervalSets
 # 1. Manually install allensdk in python3.7
 # ENV["PYTHON"]="/usr/bin/python3.7"
 
-
+const pynwb = PyNULL()
 const allensdk = PyNULL()
 const brain_observatory = PyNULL()
 const ecephys = PyNULL()
@@ -34,6 +34,7 @@ function __init__()
     # Conda.update() # You might need to delete the .julia/conda folder and rebuild PyCall; allensdk has some tricky compatibility requirements.
     # Conda.pip("install", "allensdk")
 
+    copy!(allensdk, pyimport("pynwb"))
     copy!(allensdk, pyimport("allensdk"))
     copy!(brain_observatory, pyimport("allensdk.brain_observatory"))
     copy!(stimulus_info, pyimport("allensdk.brain_observatory.stimulus_info"))
@@ -79,6 +80,7 @@ export convertdataframe
 
 include("./EcephysCache.jl")
 include("./BrainObservatory.jl")
+include("./Streaming.jl")
 include("./LFP.jl")
 include("./SparseDimArray.jl")
 include("./SpikeBand.jl")
