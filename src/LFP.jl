@@ -573,12 +573,17 @@ function aperiodicfit(p::AbstractDimArray, args...)
     fm = fooof(p, args...)
     # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
     b, k, χ = fm.aperiodic_params_
-    L = f -> b - log(k + f^χ)
+    L = f -> b - log(k + f^χ) # Not accurate yet 😦
 end
 
-function correctedwavelettransform(x::LFPVector; kwargs...)
-    res = wavelettransform(x)
+function fooofedwavelet(res::AbstractDimArray)
     psd = mean(res, dims=Ti)
+
+end
+
+function fooofedwavelet(x::LFPVector; kwargs...)
+    res = wavelettransform(x; kwargs...)
+
 
 end
 
