@@ -86,7 +86,7 @@ export traces
 
 function powerlawfit(_psd::AN.PSDMatrix)
     y = log10.(mean(_psd, dims=Dim{:channel}))
-    x = dims(_psd, Dim{:𝑓}) |> collect
+    x = dims(_psd, Dim{:frequency}) |> collect
     x = repeat(log10.(x), 1, size(y, 2))
     y = Array(y)[:] # Flatten for regression
     x = x[:]
@@ -107,10 +107,10 @@ function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([
     𝑓 = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p ∈ P]...)
     psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
-    psd = DimArray(psd, (Dim{:𝑓}(𝑓), dims(LFP, :channel)))
+    psd = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
     fig = traces(𝑓, Array(psd); xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
     if !isnothing(slope)
-        _psd = psd[Dim{:𝑓}(DD.Between(slope...))]
+        _psd = psd[Dim{:frequency}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=:red, linewidth=5)
         text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
@@ -133,11 +133,11 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, 
     𝑓 = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p ∈ P]...)
     psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
-    psd = DimArray(psd, (Dim{:𝑓}(𝑓), dims(LFP, :channel)))
+    psd = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
     depths = AN.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
     fig = traces(𝑓, Array(psd); tracez=depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
     if !isnothing(slope)
-        _psd = psd[Dim{:𝑓}(DD.Between(slope...))]
+        _psd = psd[Dim{:frequency}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=:red, linewidth=5)
         text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
@@ -158,7 +158,7 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector; kwargs...)
         P = [fp(Array(x)) for x ∈ eachcol(LFP)]
         psd = hcat([p.power for p ∈ P]...)
         psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
-        A[x] = DimArray(psd, (Dim{:𝑓}(𝑓), dims(LFP, :channel)))
+        A[x] = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
     end
     depths =[AN.getchanneldepths(session, probeids[x], collect(dims(A[x], :channel))) for x ∈ 1:length(probeids)]
     A = hcat(A...)
@@ -244,5 +244,5 @@ end
 
 
 
-Makie.heatmap!(ax, B::AN.Burst; kwargs...) = heatmap!(ax, dims(B.mask, Ti)|>collect, dims(B.mask, Dim{:𝑓})|>collect, B.mask|>Array; kwargs...)
+Makie.heatmap!(ax, B::AN.Burst; kwargs...) = heatmap!(ax, dims(B.mask, Ti)|>collect, dims(B.mask, Dim{:frequency})|>collect, B.mask|>Array; kwargs...)
 Makie.heatmap(B::AN.Burst; kwargs...) = (ax = Axis(Figure()[1, 1]); heatmap!(ax, B; kwargs...); current_figure())
