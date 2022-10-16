@@ -11,6 +11,7 @@ using Wavelets
 using ContinuousWavelets
 using TimeseriesSurrogates
 using HTTP
+using PyFOOOF
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -20,7 +21,7 @@ dimmatrix(a, b::Symbol) = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:a, B<
 dimmatrix(a, b) = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:a, B<:b}
 export dimmatrix
 
-PSDMatrix = dimmatrix(:𝑓, :channel)
+PSDMatrix = dimmatrix(:frequency, :channel)
 
 
 function downloadlfp(S::AbstractSession, probeid::Int)
@@ -544,47 +545,60 @@ DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims
 
 
 
-function wavelettransform(x::LFPVector; moth=Morlet(2π), β=4, Q=64)
+function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=64) # β = 1 means linear in log space
     x = rectifytime(x)
     c = wavelet(moth; β, Q);
     res = abs.(ContinuousWavelets.cwt(x, c))
-    t = dims(x, Ti) |> collect
+    t = dims(x, Ti)
     n = length(t)
-    fs = 1.0./step(dims(x, Ti)) # Assume rectified time dim
+    fs = 1.0./step(t) # Assume rectified time dim
     W = ContinuousWavelets.computeWavelets(n, wavelet(moth; β, Q);)[1]
     freqs = getMeanFreq(W, fs)
     freqs[1] = 0
-    return DimArray(res, (Ti(t), Dim{:𝑓}(freqs)))
+    return DimArray(res, (t, Dim{:frequency}(freqs)))
 end
 
 
-function fooof(p::AbstractDimArray, freqrange=[10.0, 300.0])
-    freqs = collect(dims(p, Dim{:frequency}))
+function fooof(p::LogWaveletMatrix, freqrange=[10.0, 300.0])
+    ffreqs = 10.0.^collect(dims(p, Dim{:logfrequency}))
     freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
-    spectrum = collect(p)
+    spectrum = vec(collect(p))
     fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 20.0]"o, max_n_peaks=4, aperiodic_mode="knee")
-    fm.report(freqs, spectrum, freqrange)
-    fm.add_data(freqs, spectrum, freqrange)
+    # fm.report(freqs, spectrum, freqrange)
+    fm.add_data(ffreqs, spectrum, freqrange)
     fm.fit()
     return fm
 end
 
-function aperiodicfit(p::AbstractDimArray, args...)
+function logaperiodicfit(p::LogWaveletMatrix, args...)
     fm = fooof(p, args...)
     # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
     b, k, χ = fm.aperiodic_params_
-    L = f -> b - log(k + f^χ) # Not accurate yet 😦
+    L = f -> 10.0.^(b - log10(k + (10.0^(f))^χ)) # Expects log frequency values
 end
 
-function fooofedwavelet(res::AbstractDimArray)
+aperiodicfit(args...) = f -> (logaperiodicfit(args...)(log10(f)))
+
+function fooofedwavelet(res::LogWaveletMatrix)
     psd = mean(res, dims=Ti)
+    ffreqs = dims(psd, Dim{:logfrequency}) |> collect
+    L = logaperiodicfit(psd)
 
+    f = Makie.Figure()
+    ax = Axis(f[1, 1]; xlabel="Frequency (Hz)")
+    Makie.lines!(ax, 10.0.^ffreqs[10:end], psd[:][10:end], color=:cornflowerblue)
+    Makie.lines!(ax, 10.0.^ffreqs[10:end], (L.(ffreqs)[10:end]), color=:crimson)
+    f
+    Makie.lines(ffreqs[10:end], psd[:][10:end].-L.(ffreqs)[10:end], color=:cornflowerblue)
+    l = DimArray(L.(ffreqs), (Dim{:logfrequency}(ffreqs),))
+    res = mapslices(x -> x - l, res, dims=Dim{:logfrequency})
 end
+
+fooofedwavelet(res::WaveletMatrix) = fooofedwavelet(convert(LogWaveletMatrix, res))
 
 function fooofedwavelet(x::LFPVector; kwargs...)
     res = wavelettransform(x; kwargs...)
-
-
+    fooofedwavelet(res)
 end
 
 
