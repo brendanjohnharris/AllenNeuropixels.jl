@@ -54,7 +54,7 @@ end
 """
 We'll plot the columns of this array as traces of their mean values. `x` is the lag index of each row, `tracez` is the value with which to color each trace (column) and `X` is an array of trace data.
 """
-function traces(x, X::AbstractArray; smooth=10, clabel=nothing, tracez=nothing, colormap=cgrad([:cornflowerblue, :black], alpha=0.2), domean=false, doaxis=true, linewidth=1, kwargs...) # ! Plot recipe?
+function traces(x, X::AbstractArray; smooth=10, clabel=nothing, tracez=nothing, colormap=cgrad([:cornflowerblue, :black], alpha=0.2), domean=false, doaxis=true, linewidth=1, alpha=0.32, kwargs...) # ! Plot recipe?
     MA(g) = [i < smooth ? mean(g[begin:i]) : mean(g[i-smooth+1:i]) for i in 1:length(g)]
     fig = Figure(resolution=(800, 400))
     ax = Axis(fig[1, 1]; kwargs...)
@@ -63,7 +63,7 @@ function traces(x, X::AbstractArray; smooth=10, clabel=nothing, tracez=nothing, 
     xx = repeat(x, outer=[1, size(X, 2)])
     xx = vcat(xx, fill(NaN, (1, size(xx, 2))))[:]
     if isnothing(tracez)
-        colors = (:gray, 0.32)
+        colors = (:gray, alpha)
     else
         colors = repeat(tracez[:]', outer=[size(X, 1), 1])
         colors = Float64.(vcat(colors, fill(NaN, (1, size(colors, 2))))[:])
@@ -241,7 +241,14 @@ function regiontraces(X::AN.LFPMatrix; kwargs...)
 end
 
 
-
+function plotwaveletvariability(res::AN.LogWaveletMatrix, L::Function; downsample=10)
+    x = dims(res, Dim{:logfrequency}) |> collect
+    fig = traces((x), collect(res[1:downsample:end, :])'; domean=true, alpha=0.01) # Plots the wavelet spectrum at each time against the mean wavelet spectrum
+    ax = current_axis()
+    lines!(ax, (x), L.(x), color=:crimson, linewidth=2)
+    ax.xlabel = "log10(frequency)"
+    return fig
+end
 
 
 Makie.heatmap!(ax, B::AN.Burst; kwargs...) = heatmap!(ax, dims(B.mask, Ti)|>collect, dims(B.mask, Dim{:frequency})|>collect, B.mask|>Array; kwargs...)

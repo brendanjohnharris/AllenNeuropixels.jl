@@ -24,6 +24,15 @@ export dimmatrix
 PSDMatrix = dimmatrix(:frequency, :channel)
 
 
+WaveletMatrix = dimmatrix(Ti, :frequency) # Type for DimArrays containing wavelet transform info
+LogWaveletMatrix = dimmatrix(Ti, :logfrequency) # Type for DimArrays containing wavelet transform info
+export WaveletMatrix, LogWaveletMatrix
+function Base.convert(::Type{LogWaveletMatrix}, x::WaveletMatrix)
+    x = DimArray(x, (dims(x, Ti), Dim{:logfrequency}(log10.(dims(x, :frequency)))))
+    x = x[:, .!isinf.(dims(x, :logfrequency))]
+end
+
+
 function downloadlfp(S::AbstractSession, probeid::Int)
     @assert(any(getprobeids(S) .== probeid), "Probe $probeid does not belong to session $(getid(S))")
     @assert(subset(getprobes(S), :id=>ByRow(==(probeid)))[!, :has_lfp_data][1], @error "Probe $probeid does not have LFP data")
@@ -545,7 +554,7 @@ DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims
 
 
 
-function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=64) # β = 1 means linear in log space
+function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32) # β = 1 means linear in log space
     x = rectifytime(x)
     c = wavelet(moth; β, Q);
     res = abs.(ContinuousWavelets.cwt(x, c))
@@ -579,17 +588,23 @@ end
 
 aperiodicfit(args...) = f -> (logaperiodicfit(args...)(log10(f)))
 
-function fooofedwavelet(res::LogWaveletMatrix)
+
+function _fooofedwavelet(res::LogWaveletMatrix)
     psd = mean(res, dims=Ti)
     ffreqs = dims(psd, Dim{:logfrequency}) |> collect
     L = logaperiodicfit(psd)
+end
+_fooofedwavelet(res::WaveletMatrix) = _fooofedwavelet(convert(LogWaveletMatrix, res))
 
-    f = Makie.Figure()
-    ax = Axis(f[1, 1]; xlabel="Frequency (Hz)")
-    Makie.lines!(ax, 10.0.^ffreqs[10:end], psd[:][10:end], color=:cornflowerblue)
-    Makie.lines!(ax, 10.0.^ffreqs[10:end], (L.(ffreqs)[10:end]), color=:crimson)
-    f
-    Makie.lines(ffreqs[10:end], psd[:][10:end].-L.(ffreqs)[10:end], color=:cornflowerblue)
+function fooofedwavelet(res::LogWaveletMatrix)
+    L = _fooofedwavelet(res)
+    ffreqs = dims(res, Dim{:logfrequency}) |> collect
+    # f = Makie.Figure()
+    # ax = Axis(f[1, 1]; xlabel="Frequency (Hz)")
+    # Makie.lines!(ax, 10.0.^ffreqs[10:end], psd[:][10:end], color=:cornflowerblue)
+    # Makie.lines!(ax, 10.0.^ffreqs[10:end], (L.(ffreqs)[10:end]), color=:crimson)
+    # f
+    # Makie.lines(ffreqs[10:end], psd[:][10:end].-L.(ffreqs)[10:end], color=:cornflowerblue)
     l = DimArray(L.(ffreqs), (Dim{:logfrequency}(ffreqs),))
     res = mapslices(x -> x - l, res, dims=Dim{:logfrequency})
 end
