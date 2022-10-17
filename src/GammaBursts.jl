@@ -4,14 +4,6 @@ using LsqFit
 using LinearAlgebra
 # using FiniteDifferences
 
-WaveletMatrix = dimmatrix(Ti, :frequency) # Type for DimArrays containing wavelet transform info
-LogWaveletMatrix = dimmatrix(Ti, :logfrequency) # Type for DimArrays containing wavelet transform info
-export WaveletMatrix, LogWaveletMatrix
-function Base.convert(::Type{LogWaveletMatrix}, x::WaveletMatrix)
-    x = DimArray(x, (dims(x, Ti), Dim{:logfrequency}(log10.(dims(x, :frequency)))))
-    x = x[:, .!isinf.(dims(x, :logfrequency))]
-end
-
 abstract type AbstractBurst end
 BurstVector = AbstractVector{<:AbstractBurst}
 
@@ -39,6 +31,9 @@ function threshold(res, thresh, mode)
     end
 end
 
+function surrogatethreshold()
+end
+
 # grad(x::Real, y::Real) = x - y
 # grad(x::AbstractVector, h) = grad.((@view x[3:end]), (@view x[1:end-2]))./(2*h)
 # grad(h::Real) = x -> grad(x, h)
@@ -46,7 +41,7 @@ end
 """
 Threshold a wavelet spectrum using either a percentile cutoff (`mode=:percentile`) or a standard deviation cutoff (`mode=:std`) of either each frequency band (`eachfreq=true`) or the entire spectrum.
 """
-function burstthreshold!(res::LogWaveletMatrix, thresh; mode=:percentile, eachfreq=false, zerograd=0.1)
+function burstthreshold!(res::LogWaveletMatrix, thresh; zerograd=0.1)
     @assert dims(res, Ti) isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
     if eachfreq
         cutoffs = threshold.(eachcol(res), thresh, mode)
