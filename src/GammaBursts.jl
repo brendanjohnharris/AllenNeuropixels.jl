@@ -27,7 +27,7 @@ function threshold(res, thresh, mode)
     if mode == :percentile
         cutoff = percentile(res[:], thresh)
     elseif mode == :std
-        cutoff = mean(res[:]) + thresh*std(res[:])
+        cutoff = thresh*std(res[:])
     end
 end
 
@@ -39,16 +39,17 @@ end
 # grad(h::Real) = x -> grad(x, h)
 
 """
-Threshold a wavelet spectrum using either a percentile cutoff (`mode=:percentile`) or a standard deviation cutoff (`mode=:std`) of either each frequency band (`eachfreq=true`) or the entire spectrum.
+Threshold a wavelet spectrum using either a percentile cutoff (`mode=:percentile`) or a standard deviation cutoff (`mode=:std`) of either each frequency band (`eachfreq=true`) or the entire spectrum. You probably want to FOOOF the spectrum before this
 """
-function burstthreshold!(res::LogWaveletMatrix, thresh; zerograd=0.1)
-    @assert dims(res, Ti) isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
-    if eachfreq
-        cutoffs = threshold.(eachcol(res), thresh, mode)
-    else
-        cutoffs = threshold(res, thresh, mode)
-    end
-    res[res .< cutoffs'] .= 0.0
+function burstthreshold!(res::LogWaveletMatrix, thresh; mode=:std, zerograd=0.0)
+    @assert dims(res, Ti).val.data isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
+    # if eachfreq
+    #     cutoffs = threshold.(eachcol(res), thresh, mode)
+    # else
+    cutoffs = threshold(res, thresh, mode)
+    display(cutoffs)
+    # end
+    res[res .< cutoffs] .= 0.0
 
     if zerograd > 0
         xs = dims(res, Ti)
@@ -93,50 +94,46 @@ burstthreshold(res, thresh; kwargs...) = (y = deepcopy(res); burstthreshold!(y, 
 
 burstthreshold!(res::WaveletMatrix, thresh; kwargs...) = burstthreshold!(convert(LogWaveletMatrix, res), thresh; kwargs...)
 
-function _detectbursts(_res::WaveletMatrix; areacutoff=1)
-# Get the connected component masks
-    components = ImageMorphology.label_components(_res|>Array)
-    areas = ImageMorphology.component_lengths(components)
-    idxs = areas .≥ areacutoff
-    centroids = ImageMorphology.component_centroids(components)
-    centroids = [round.(Int, c) for c in centroids]
-    𝑓 = dims(res, Dim{:frequency})
-    t = dims(res, Ti)
-    peaks = [(t[c[1]], 𝑓[c[2]]) for c in centroids]
-    peaks = [(p[1], p[2], res[Ti(At(p[1])), Dim{:frequency}(At(p[2]))]) for p in peaks]
-    masks = burstmask.((res,), peaks)
-    return Burst.(masks, ((minimum(res[_res]), mode, thresh),), peaks)[idxs]
-end
 
 """
 Detect bursts from a supplied wavelet spectrum, using thresholding
 """
-function detectbursts(res::WaveletMatrix, thresh=99.5; mode=:percentile, kwargs...)
+function detectbursts(res::LogWaveletMatrix, thresh=3; mode=:std, areacutoff=1, kwargs...)
     _res = burstthreshold(res, thresh; mode) .> 0
-    _detectbursts(res; kwargs...)
+    components = ImageMorphology.label_components(_res|>Array)
+    areas = ImageMorphology.component_lengths(components)[2:end]
+    idxs = areas .≥ areacutoff
+    centroids = ImageMorphology.component_centroids(components)[2:end]
+    centroids = [round.(Int, c) for c in centroids]
+    𝑓 = dims(_res, Dim{:logfrequency})
+    t = dims(_res, Ti)
+    peaks = [(t[c[1]], 𝑓[c[2]]) for c in centroids]
+    peaks = [(p[1], p[2], _res[Ti(At(p[1])), Dim{:frequency}(At(p[2]))]) for p in peaks]
+    # ! Might want to look for gaussian peak instead
+    # masks = burstmask.((_res,), peaks)
+    bb = ImageMorphology.component_boxes(components[2:end])
+    masks = ...................index res............
+    return Burst.(masks, ((minimum(_res[_res]), mode, thresh),), peaks)[idxs]
 end
 
 """
 This is the preferred, surrogate-based method of detecting bursts. Assumes the surrogate will be stationary, so averages statistics over a wavelet transform of a single surrogate.
 `thresh` is in SDs
 """
-function detectbursts(x::LFPVector; pass=[30, 100], areacutoff=1, thresh=2, kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, Ti))/minimum(pass))), N=100
-    s = surrogate(x, IAAFT())
-    # S = [s() for _ in 1:N]
-    γₛ = gammafilter(s; pass)
-    res = wavelettransform(γₛ)
+function detectbursts(x::LFPVector; pass=[30, 100], thresh=3, kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, Ti))/minimum(pass))), N=100
+    # s = surrogate(x, AP())
+    # # S = [s() for _ in 1:N]
+    # # γₛ = gammafilter(s; pass)
+    # res = wavelettransform(γₛ)
     # agg = [getindex.(res, (i,)) for i in CartesianIndices(res[1])]
     # agg = DimArray(agg, dims(res[1]))
-    σ = mapslices(std, res, dims=1)
-    μ = mapslices(mean, res, dims=1)
+    # σ = mapslices(std, res, dims=1)
+    # μ = mapslices(mean, res, dims=1)
 
-    # * Determine a threshold from the surrogate wavelet spectra. Lets just use SD's for simplicity
-    # * This can be done by normalizing each frequency band with the mean and SD from the surrogate
-    # .................will need to At() the wavelet values.............
-
-    γ = gammafilter(x; pass)
-    res = wavelettransform(γ; kwargs...)
-    _detectbursts(res; areacutoff)
+    # γ = gammafilter(x; pass)
+    res = wavelettransform(x; kwargs...)
+    res = fooofedwavelet(res)
+    detectbursts(res, thresh)
 end
 
 function fit!(B::Burst)
@@ -188,12 +185,12 @@ end
 
 # Could consider doing this in two passess, to be computationally efficient: first pass by looking along perpendicular directions, with a low threshold, then second pass by fitting a Gaussian on this loose mask and setting a higher threshold.
 # """
-function burstmask(res::WaveletMatrix, peak; thresh=0.8, n=3)#, diffthresh=0.01)
-    pidx = ((Ti∘At)(peak[1]), (Dim{:frequency}∘At)(peak[2]))
+function burstmask(res::LogWaveletMatrix, peak; thresh=0.8, n=3)#, diffthresh=0.01)
+    pidx = ((Ti∘At)(peak[1]), (Dim{:logfrequency}∘At)(peak[2]))
     A = res[pidx...]
     thresh = thresh*A
     # Find the rectangular boundary that contains the threshold. Work in each dimension from the centre. Assumes the burst profile is blobby around the peak and its horizontal/vertical axes.
-    𝑓 = dims(res, Dim{:frequency})
+    𝑓 = dims(res, Dim{:logfrequency})
     t = dims(res, Ti)
 
     bounds = zeros(4) # (tmin, tmax, fmin, fmax)
