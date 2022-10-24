@@ -554,7 +554,7 @@ DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims
 
 
 
-function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32) # β = 1 means linear in log space
+function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=64) # β = 1 means linear in log space
     x = rectifytime(x)
     c = wavelet(moth; β, Q);
     res = abs.(ContinuousWavelets.cwt(x, c))
