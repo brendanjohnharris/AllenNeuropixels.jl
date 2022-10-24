@@ -8,7 +8,7 @@ abstract type AbstractBurst end
 BurstVector = AbstractVector{<:AbstractBurst}
 
 Base.@kwdef mutable struct Burst <: AbstractBurst
-    mask::WaveletMatrix
+    mask::LogWaveletMatrix
     thresh
     peak = nothing
     fit = nothing
@@ -21,7 +21,31 @@ Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
 
 duration(B::Burst) = B.fit.param[4]
 spectralwidth(B::Burst) = B.fit.param[5]
-binarymask(B::Burst) = B.mask .> B.thresh[1]
+mask(B::Burst) = B.mask
+# binarymask(B::Burst) = B.mask .> B.thresh[1]
+peaktime(B::Burst) = B.fit.param[2]
+peakfreq(B::Burst) = B.fit.param[3]
+df(B::Burst) = mean(diff(collect(dims(mask(B), Dim{:logfrequency}))))
+dt(B::Burst) = step(dims(mask(B), Ti))
+maskwidth = ////////////////////
+
+
+function basicfilter!(B::BurstVector; fmin=1, tmin=0.008, tmax=1)
+    fmin = log10(fmin)
+    filter!(b->size(mask(b), Ti) > tmin/dt(b), B)
+    filter!(b->size(mask(b), Ti) < tmax/dt(b), B)
+    filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
+end
+
+function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[30, 100]) # fmin in Hz, tmin in s
+    fmin = log10(fmin)
+    pass = Interval(log10.(pass)...)
+    filter!(b->size(mask(b), Ti) > tmin/dt(b), B)
+    filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
+    filter!(b->peakfreq(b) ∈ pass, B)
+    # ..... Other stuff
+end
+
 
 function threshold(res, thresh, mode)
     if mode == :percentile
@@ -47,7 +71,6 @@ function burstthreshold!(res::LogWaveletMatrix, thresh; mode=:std, zerograd=0.0)
     #     cutoffs = threshold.(eachcol(res), thresh, mode)
     # else
     cutoffs = threshold(res, thresh, mode)
-    display(cutoffs)
     # end
     res[res .< cutoffs] .= 0.0
 
@@ -94,11 +117,18 @@ burstthreshold(res, thresh; kwargs...) = (y = deepcopy(res); burstthreshold!(y, 
 
 burstthreshold!(res::WaveletMatrix, thresh; kwargs...) = burstthreshold!(convert(LogWaveletMatrix, res), thresh; kwargs...)
 
+function widen(x, δ=0.5)
+    δ = δ/2
+    @assert length(x[1]) == length(x[2]) == 2
+    Δ = [x[2][1] - x[1][1], x[2][2] - x[1][2]]
+    return [max.(1, floor.(Int, x[1] .- δ.*Δ)), ceil.(Int, x[2] .+ δ.*Δ)]
+end
 
 """
 Detect bursts from a supplied wavelet spectrum, using thresholding
+`boundingstretch` increases the bounding box slightly so for a more accurate fit. Give as a proportion of the threshold bounding box
 """
-function detectbursts(res::LogWaveletMatrix, thresh=3; mode=:std, areacutoff=1, kwargs...)
+function detectbursts(res::LogWaveletMatrix, thresh=5, boundingstretch=0.5; mode=:std, areacutoff=1, kwargs...)
     _res = burstthreshold(res, thresh; mode) .> 0
     components = ImageMorphology.label_components(_res|>Array)
     areas = ImageMorphology.component_lengths(components)[2:end]
@@ -108,19 +138,22 @@ function detectbursts(res::LogWaveletMatrix, thresh=3; mode=:std, areacutoff=1, 
     𝑓 = dims(_res, Dim{:logfrequency})
     t = dims(_res, Ti)
     peaks = [(t[c[1]], 𝑓[c[2]]) for c in centroids]
-    peaks = [(p[1], p[2], _res[Ti(At(p[1])), Dim{:frequency}(At(p[2]))]) for p in peaks]
+    peaks = [(p[1], p[2], _res[Ti(At(p[1])), Dim{:logfrequency}(At(p[2]))]) for p in peaks]
     # ! Might want to look for gaussian peak instead
     # masks = burstmask.((_res,), peaks)
-    bb = ImageMorphology.component_boxes(components[2:end])
-    masks = ...................index res............
-    return Burst.(masks, ((minimum(_res[_res]), mode, thresh),), peaks)[idxs]
+    bb = ImageMorphology.component_boxes(components)[2:end]
+    bb = [widen(b, boundingstretch) for b in bb]
+    masks = [res[b[1][1]:b[2][1], b[1][2]:b[2][2]] for b in bb]
+    B = Burst.(masks, ((minimum(_res[_res]), mode, thresh),), peaks)[idxs]
+    basicfilter!(B)
+    return B
 end
 
 """
 This is the preferred, surrogate-based method of detecting bursts. Assumes the surrogate will be stationary, so averages statistics over a wavelet transform of a single surrogate.
 `thresh` is in SDs
 """
-function detectbursts(x::LFPVector; pass=[30, 100], thresh=3, kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, Ti))/minimum(pass))), N=100
+function detectbursts(x::LFPVector; thresh=3, kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, Ti))/minimum(pass))), N=100
     # s = surrogate(x, AP())
     # # S = [s() for _ in 1:N]
     # # γₛ = gammafilter(s; pass)
@@ -141,18 +174,26 @@ function fit!(B::Burst)
     B.fit = fitdiagonalgaussian(mask)
 end
 
+function fit!(ℬ::AbstractVector{<:AbstractBurst})
+    Threads.@threads for B in ℬ
+        fit!(B)
+    end
+end
+
+function gaussian2(xy, p)
+    x, y = eachcol(xy)
+    A, μ₁, μ₂, σ₁, σ₂ = p
+    y = A.*exp.(-0.5.*(((x .- μ₁)./σ₁).^2 .+ ((y .- μ₂)./σ₂).^2))
+end
+
 function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
-    x, y, Z = collect.((x, y, Z))
+    x, y = collect.((x, y))
     xy = hcat(collect.(Iterators.product(x, y))...)'
     z = Z[:]
-    function gaussian2(xy, p)
-        x, y = eachcol(xy)
-        A, μ₁, μ₂, σ₁, σ₂ = p
-        y = A.*exp.(-0.5.*(((x .- μ₁)./σ₁).^2 .+ ((y .- μ₂)./σ₂).^2))
-    end
-    p0 = [  maximum(Z), # A
-            mean(x), # μ₁
-            mean(y), # μ₂
+    A0, μ0 = findmax(z)
+    p0 = [  A0, # A
+            xy[μ0, 1], # μ₁
+            xy[μ0, 2], # μ₂
             (x |> diff |> collect |> extrema |> first)/2, # σ₁
             (y |> diff |> collect |> extrema |> first)/2] # σ₂
     fit = LsqFit.curve_fit(gaussian2, xy, z, p0)
