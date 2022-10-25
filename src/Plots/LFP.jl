@@ -251,5 +251,43 @@ function plotwaveletvariability(res::AN.LogWaveletMatrix, L::Function; downsampl
 end
 
 
-Makie.heatmap!(ax, B::AN.Burst; kwargs...) = heatmap!(ax, dims(B.mask, Ti)|>collect, dims(B.mask, Dim{:frequency})|>collect, B.mask|>Array; kwargs...)
+function Makie.heatmap!(ax, B::AN.Burst; kwargs...)
+    x = dims(B.mask, Ti)|>collect
+    y = dims(B.mask, Dim{:logfrequency})|>collect
+    heatmap!(ax, x, y, B.mask|>Array; kwargs...)
+end
 Makie.heatmap(B::AN.Burst; kwargs...) = (ax = Axis(Figure()[1, 1]); heatmap!(ax, B; kwargs...); current_figure())
+
+function plotfit!(ax, b::AN.Burst; kwargs...)
+    x = dims(b.mask, Ti)|>collect
+    y = dims(b.mask, Dim{:logfrequency})|>collect
+    surface!(ax, x, y.|>exp10, b.mask|>Array; kwargs...)
+    model = xy -> AN.gaussian2(xy, b.fit.param)
+    x = LinRange(extrema(x)..., 10)
+    y = LinRange(extrema(y)..., 10)
+    ax.xlabel = "Time (s)"
+    ax.ylabel = "Frequency (Hz)"
+    wireframe!(ax, x, y.|>exp10, model.(Iterators.product(x, y)))
+end
+plotfit(B::AN.Burst; kwargs...) = (ax = Axis3(Figure()[1, 1]); plotfit!(ax, B; kwargs...); current_figure())
+
+function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, size(res, 1)), downsample=1, colorbar=1, colorrange=extrema(res), kwargs...)
+    ctitle = "S"
+    ax.xlabel="Time (s)"
+    ax.ylabel="Frequency (Hz)"#, yscale=Makie.pseudolog10);
+    t, freqs, res = decompose(res)
+    ts = Interval(extrema(t[1:downsample:N])...)
+    fs = Interval(extrema(exp10.(freqs))...)
+    p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :]; colorrange, kwargs...);
+    colorbar > 0 && Colorbar(current_figure()[colorbar, 2], p, label=ctitle)
+
+    for b in B[AN.peaktime.(B) .∈ (ts,)]
+        t, freqs, res = decompose(b.mask)
+        contour!(ax, t[1:downsample:end], exp10.(freqs), res[1:downsample:end, :]; color=:cornflowerblue, linewidth=2)
+        vs = collect(Iterators.product((b |> AN.mask |> AN.WaveletMatrix |> dims .|> extrema)...))
+        poly!(Point2f.(vs[[1, 2, 4, 3]]), color = RGBA(0, 0, 0, 0), strokecolor = :crimson, strokewidth = 4)
+    end
+    ax.limits = (extrema(ts), extrema(fs))
+    return ax
+end
+plotfit(res::AN.LogWaveletMatrix, B::AN.BurstVector; kwargs...) = (ax = Axis(Figure()[1, 1]); plotfit!(ax, res, B; kwargs...); current_figure())
