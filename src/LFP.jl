@@ -31,6 +31,11 @@ function Base.convert(::Type{LogWaveletMatrix}, x::WaveletMatrix)
     x = DimArray(x, (dims(x, Ti), Dim{:logfrequency}(log10.(dims(x, :frequency)))))
     x = x[:, .!isinf.(dims(x, :logfrequency))]
 end
+function Base.convert(::Type{WaveletMatrix}, x::LogWaveletMatrix)
+    x = DimArray(x, (dims(x, Ti), Dim{:frequency}(exp10.(dims(x, :logfrequency)))))
+end
+WaveletMatrix(res::LogWaveletMatrix) = convert(WaveletMatrix, res)
+LogWaveletMatrix(res::WaveletMatrix) = convert(LogWaveletMatrix, res)
 
 
 function downloadlfp(S::AbstractSession, probeid::Int)
