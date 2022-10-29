@@ -38,6 +38,8 @@ dt(B::Burst) = step(dims(mask(B), Ti))
 maskduration(B::Burst) = dims(mask(B), Ti) |> extrema |> collect |> diff |> first
 maskspectralwidth(B::Burst) = dims(mask(B), Dim{:logfrequency}) |> extrema |> collect |> diff |> first
 fiterror(B::Burst) = std(B.fit.resid./B.mask[:])
+interval(B::Burst) = peaktime(B)±duration(B)
+inany(x, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
 
 function basicfilter!(B::BurstVector; fmin=1, tmin=0.008, tmax=1, pass=[0, Inf])
     fmin = log10(fmin)
@@ -129,15 +131,11 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-"""
-Detect bursts from a supplied wavelet spectrum, using thresholding
-`boundingstretch` increases the bounding box slightly so for a more accurate fit. Give as a proportion of the threshold bounding box
-"""
-function detectbursts(res::LogWaveletMatrix; thresh=3, gradthresh=0.5, boundingstretch=0.5, method=:std, areacutoff=1, kwargs...)
+function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, boundingstretch=0.5, method=:std, areacutoff=1)
     @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     @info "Thresholding curvatures"
-    _res = _res .& (burstcurvature(res, gradthresh) .> 0)
+    _res = _res .& (burstcurvature(res, curvaturethresh) .> 0)
 
     @info "Finding connected components"
     components = ImageMorphology.label_components(_res|>Array)
@@ -155,6 +153,14 @@ function detectbursts(res::LogWaveletMatrix; thresh=3, gradthresh=0.5, boundings
     bb = [widen(b, boundingstretch; upperbound=size(res)) for b in bb]
     masks = [res[b[1][1]:b[2][1], b[1][2]:b[2][2]] for b in bb]
     B = Burst.(masks, ((minimum(_res[_res]), method, thresh),), peaks)[idxs]
+end
+
+"""
+Detect bursts from a supplied wavelet spectrum, using thresholding
+`boundingstretch` increases the bounding box slightly so for a more accurate fit. Give as a proportion of the threshold bounding box
+"""
+function detectbursts(res::LogWaveletMatrix; kwargs...)
+    B = _detectbursts(res; kwargs...)
     basicfilter!(B)
 
     @info "Fitting burst profiles"
@@ -184,6 +190,14 @@ end
 
 function fit!(B::Burst)
     mask = B.mask
+
+    # The fitting takes a while. Let's downsample a little bit if we can
+    while size(mask, 1) > 100
+        mask = mask[1:2:end, :]
+    end
+    while size(mask, 2) > 100
+        mask = mask[:, 1:2:end]
+    end
     B.fit = fitdiagonalgaussian(mask)
 end
 
@@ -197,12 +211,22 @@ function fit!(ℬ::AbstractVector{<:AbstractBurst})
     end
 end
 
-function gaussian2(xy, p)
+function gaussian2!(F, xy, p)
     x, y = eachcol(xy)
     A, μ₁, μ₂, σ₁, σ₂ = p
-    y = A.*exp.(-0.5.*(((x .- μ₁)./σ₁).^2 .+ ((y .- μ₂)./σ₂).^2))
+    @. F = A*exp(-0.5*(((x - μ₁)/σ₁)^2 + ((y - μ₂)/σ₂)^2))
 end
-gaussian2(xy::Tuple, p) = gaussian2(collect(xy)', p) |> first
+gaussian2(xy::Tuple, p) = (F = [0.0]; gaussian2!(F, collect(xy)', p) |> first)
+
+function gaussian2_j!(J::Array{Float64,2}, xy, p)
+    x, y = eachcol(xy)
+    A, μ₁, μ₂, σ₁, σ₂ = p
+    @. J[:,1] .= exp(-0.5*(((x - μ₁)/σ₁)^2 + ((y - μ₂)/σ₂)^2))                       #dF/A
+    @. @views J[:,2] .= A*(x-μ₁)*J[:,1]/(σ₁^2)         #dF/μ₁
+    @. @views J[:,3] .= A*(y-μ₂)*J[:,1]/(σ₂^2)         #dF/μ₂
+    @. @views J[:,4] .= A*(x-μ₁)^2*J[:,1]/(σ₁^3)       #dF/σ₁
+    @. @views J[:,5] .= A*(x-μ₂)^2*J[:,1]/(σ₂^3)       #dF/σ₂
+end
 
 function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
     x, y = collect.((x, y))
@@ -212,9 +236,9 @@ function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
     p0 = [  A0, # A
             xy[μ0, 1], # μ₁
             xy[μ0, 2], # μ₂
-            (x |> extrema |> collect |> diff |> first)/2, # σ₁
-            (y |> extrema |> collect |> diff |> first)/2] # σ₂
-    fit = LsqFit.curve_fit(gaussian2, xy, z, p0; autodiff=:forwarddiff)
+            (x |> extrema |> collect |> diff |> first)/3, # σ₁
+            (y |> extrema |> collect |> diff |> first)/3] # σ₂
+    fit = LsqFit.curve_fit(gaussian2!, xy, z, p0; inplace=true, autodiff=:forwarddiff)
 end
 
 function fitdiagonalgaussian(mask::AbstractDimArray)
