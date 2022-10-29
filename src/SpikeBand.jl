@@ -30,6 +30,16 @@ function getspiketimes(S::AbstractSession, unitids::Vector{Int})
     Dict(a => b for (a,b) in spiketimes if a in unitids)
 end
 
+function formatspiketimes(; sessionid=757216464, structure="VISp", stimulus="gabors", n=1)
+    S = Session(sessionid)
+    spiketimes = getspiketimes(S, structure)
+    I = stimulusintervals(S, stimulus).interval[n]
+    ks = keys(spiketimes)
+    vals = values(spiketimes)
+    vals = [v[in.(v, (I,))] for v in vals]
+    Dict(k => v for (k,v) in zip(ks, vals))
+end
+
 # `count` is a boolean indicating whether to return the number of spikes in each bin, or sum the amplitudes
 function _getspikes(units, times, amplitudes, _times, bin, rectify, count)
     tmax = maximum(_times)
@@ -78,8 +88,18 @@ end
 function getspikes(S, stimulus::String, structure::String; kwargs...)
     spikes = getspikes(S, stimulus; kwargs...)
     structures = getstructureacronyms(S, dims(spikes, Dim{:unit}))
-    spikes = spikes[:, structures .== structure]
+    spikes = spikes[:, findall(structures .== structure)]
 end
+
+"""
+A function to easily grab formatted spike data for a given session, using some sensible default parameters
+"""
+function formatspikes(; sessionid=757216464, stimulus="gabors", structure="VISp", n = 1)
+    sesh = Session(sessionid)
+    S = getspikes(sesh, stimulus, structure; bin=1e-4, rectify=4, structure=nothing, count=true)
+end
+
+
 
 function getstructureacronyms(session::AbstractSession, units)
     unittable = getunitmetrics(session)

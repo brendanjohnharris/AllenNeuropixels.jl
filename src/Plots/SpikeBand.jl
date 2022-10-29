@@ -1,7 +1,4 @@
 
-function spikeraster(times::AbstractDict)
-
-end
 
 
 function spikeraster!(ax::Axis, spikes::AN.SpikeMatrix; markersize=15, marker=:vline, kwargs...)

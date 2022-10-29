@@ -34,8 +34,8 @@ end
 function Base.convert(::Type{WaveletMatrix}, x::LogWaveletMatrix)
     x = DimArray(x, (dims(x, Ti), Dim{:frequency}(exp10.(dims(x, :logfrequency)))))
 end
-WaveletMatrix(res::LogWaveletMatrix) = convert(WaveletMatrix, res)
-LogWaveletMatrix(res::WaveletMatrix) = convert(LogWaveletMatrix, res)
+waveletmatrix(res::LogWaveletMatrix) = convert(WaveletMatrix, res)
+logwaveletmatrix(res::WaveletMatrix) = convert(LogWaveletMatrix, res)
 
 
 function downloadlfp(S::AbstractSession, probeid::Int)
@@ -225,7 +225,7 @@ function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
     LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
 end
 
-function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp", n = 1)
+function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp", n=1)
     session = Session(sessionid)
     if isnothing(structure)
         structure = getchannels(session, probeid).id |> getstructureacronyms |> unique |> skipmissing |> collect |> Vector{String}
@@ -559,7 +559,7 @@ DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims
 
 
 
-function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=64) # β = 1 means linear in log space
+function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32) # β = 1 means linear in log space
     x = rectifytime(x)
     c = wavelet(moth; β, Q);
     res = abs.(ContinuousWavelets.cwt(x, c))
