@@ -23,6 +23,8 @@ export dimmatrix
 
 PSDMatrix = dimmatrix(:frequency, :channel)
 
+duration(X::AbstractDimArray) = diff(extrema(dims(X, Ti))|>collect)|>first
+
 
 WaveletMatrix = dimmatrix(Ti, :frequency) # Type for DimArrays containing wavelet transform info
 LogWaveletMatrix = dimmatrix(Ti, :logfrequency) # Type for DimArrays containing wavelet transform info
