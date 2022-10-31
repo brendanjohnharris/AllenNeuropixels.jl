@@ -40,6 +40,32 @@ function formatspiketimes(; sessionid=757216464, structure="VISp", stimulus="gab
     Dict(k => v for (k,v) in zip(ks, vals))
 end
 
+
+"""
+Construct a sparse array of spike counts from a Dict of spike times
+"""
+function spikematrix(Sp::AbstractDict, bin=1e-4; rectify=4)
+    tmin, tmax = extrema(vcat(values(Sp)...))
+    units = Sp |> keys |> collect
+    if rectify > 0
+        tmax = round(tmax; digits=rectify)
+        tmin = round(tmin; digits=rectify)
+    end
+    ts = tmin:bin:tmax
+    spikes = spzeros(Float32, length(ts), length(units))
+    spikes = goSparseDimArray(spikes, (Ti(ts), Dim{:unit}(units)))
+    @withprogress name="spikearray" begin
+        for u in eachindex(units)
+            _times = Sp[units[u]]
+            for t in eachindex(_times) # Hella slow
+                spikes[Ti(Near(_times[t])), Dim{:unit}(At(units[u]))] += 1
+            end
+            @logprogress u/length(units)
+        end
+    end
+    return spikes
+end
+
 # `count` is a boolean indicating whether to return the number of spikes in each bin, or sum the amplitudes
 function _getspikes(units, times, amplitudes, _times, bin, rectify, count)
     tmax = maximum(_times)
@@ -57,7 +83,7 @@ function _getspikes(units, times, amplitudes, _times, bin, rectify, count)
         _times = times[u]
         _amplitudes = amplitudes[u]
         for t in eachindex(_times) # Hella slow
-            spikes[Ti(Near(_times[t])), Dim{:unit}(u)] += (count ? 1 : _amplitudes[t])
+            spikes[Ti(Near(_times[t])), At(Dim{:unit}(units[u]))] += (count ? 1 : _amplitudes[t])
         end
         @logprogress u/length(units)
     end

@@ -24,6 +24,14 @@ export dimmatrix
 PSDMatrix = dimmatrix(:frequency, :channel)
 
 duration(X::AbstractDimArray) = diff(extrema(dims(X, Ti))|>collect)|>first
+function samplingperiod(X::AbstractDimArray)
+    if dims(X, Ti).val.data isa AbstractRange
+        step(dims(X, Ti))
+    else
+        mean(diff(collect(dims(X, Ti))))
+    end
+end
+samplingrate(X::AbstractDimArray) = 1/samplingperiod(X)
 
 
 WaveletMatrix = dimmatrix(Ti, :frequency) # Type for DimArrays containing wavelet transform info
@@ -668,4 +676,12 @@ function powerspectra(x::LFPVector; kwargs...)
     t = dims(x, Ti) |> collect
     𝑓, psd = powerspectra(t, collect(x); kwargs...)
     psd = DimArray(psd[:], (Dim{:frequency}(𝑓),))
+end
+
+
+function mutualinfo(x, y, est; base = 2, α = 1)
+    X = genentropy(Dataset(x), est; base, α)
+    Y = genentropy(Dataset(y), est; base, α)
+    XY = genentropy(Dataset(x, y), est; base, α)
+    return X + Y - XY
 end
