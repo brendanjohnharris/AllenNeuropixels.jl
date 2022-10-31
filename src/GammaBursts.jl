@@ -38,7 +38,7 @@ dt(B::Burst) = step(dims(mask(B), Ti))
 maskduration(B::Burst) = dims(mask(B), Ti) |> extrema |> collect |> diff |> first
 maskspectralwidth(B::Burst) = dims(mask(B), Dim{:logfrequency}) |> extrema |> collect |> diff |> first
 fiterror(B::Burst) = std(B.fit.resid./B.mask[:])
-interval(B::Burst) = peaktime(B)±duration(B)
+interval(B::Burst) = peaktime(B)±(0.5*duration(B))
 inany(x, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
 
 function basicfilter!(B::BurstVector; fmin=1, tmin=0.008, tmax=1, pass=[0, Inf])
