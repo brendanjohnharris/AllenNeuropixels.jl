@@ -4,6 +4,7 @@ using LsqFit
 using LinearAlgebra
 using ProgressLogging
 using Interpolations
+using HypothesisTests
 # using FiniteDifferences
 
 abstract type AbstractBurst end
@@ -28,6 +29,7 @@ function spectralwidth(B::Burst)
     μ = logpeakfreq(B)
     return (exp10(σ^2) - 1)*exp10(2*μ + σ^2)
 end
+amplitude(B::Burst) = B.fit.param[1]
 mask(B::Burst) = B.mask
 # binarymask(B::Burst) = B.mask .> B.thresh[1]
 peaktime(B::Burst) = B.fit.param[2]
@@ -49,6 +51,11 @@ function basicfilter!(B::BurstVector; fmin=1, tmin=0.008, tmax=1, pass=[0, Inf])
     filter!(b->size(mask(b), Ti) < tmax/dt(b), B)
     filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
     # filter!(b->passes(extrema(dims(mask(b), Dim{:frequency}))), B)
+end
+
+function bandfilter!(B::BurstVector; pass=[50, 60])
+    pass = Interval(pass...)
+    filter!(b->peakfreq(b) ∈ pass, B)
 end
 
 function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[50, 60]) # fmin in Hz, tmin in s
@@ -155,24 +162,43 @@ function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, bound
     B = Burst.(masks, ((minimum(_res[_res]), method, thresh),), peaks)[idxs]
 end
 
+function pvalues(B::BurstVector, Bs::BurstVector, f::Function; test=OneSampleTTest, tail=:left)
+    d = f.(B)
+    ds = f.(Bs)
+    p = pvalue.(test.((ds,), d); tail).*length(d) # Bonferroni correction
+end
+
+function significancefilter!(B::BurstVector, Bs::BurstVector, f::Function; test=OneSampleTTest, tail=:left, thresh=0.05)
+    p = pvalues(B, Bs, f; test, tail)
+    deleteat!(B, p .> thresh)
+end
+
+"""
+Filter a vector of bursts based of a vector of surrogate bursts
+"""
+function surrogatefilter!(B::BurstVector, Bs::BurstVector; stats = [duration, amplitude])
+    for s in stats
+        significancefilter!(B, Bs, s; test=OneSampleTTest, tail=:left, thresh=0.01)
+    end
+end
+
 """
 Detect bursts from a supplied wavelet spectrum, using thresholding
 `boundingstretch` increases the bounding box slightly so for a more accurate fit. Give as a proportion of the threshold bounding box
 """
-function detectbursts(res::LogWaveletMatrix; kwargs...)
+function detectbursts(res::LogWaveletMatrix; pass=[30, 100], kwargs...)
     B = _detectbursts(res; kwargs...)
     basicfilter!(B)
 
     @info "Fitting burst profiles"
     fit!(B)
     sort!(B, by=peaktime)
+
+    isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
+
     return B
 end
 
-"""
-This is the preferred, surrogate-based method of detecting bursts. Assumes the surrogate will be stationary, so averages statistics over a wavelet transform of a single surrogate.
-`thresh` is in SDs
-"""
 function detectbursts(x::LFPVector; kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, Ti))/minimum(pass))), N=100
     # s = surrogate(x, AP())
     # # S = [s() for _ in 1:N]
@@ -184,7 +210,7 @@ function detectbursts(x::LFPVector; kwargs...) # surrodur=min(length(x), round(I
     # μ = mapslices(mean, res, dims=1)
 
     # γ = gammafilter(x; pass)
-    res = fooofedwavelet(x; kwargs...)
+    res = fooofedwavelet(x)
     detectbursts(res; kwargs...)
 end
 

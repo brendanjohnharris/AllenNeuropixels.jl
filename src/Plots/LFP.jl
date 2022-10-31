@@ -271,7 +271,7 @@ function plotfit!(ax, b::AN.Burst; kwargs...)
 end
 plotfit(B::AN.Burst; kwargs...) = (ax = Axis3(Figure()[1, 1]); plotfit!(ax, B; kwargs...); current_figure())
 
-function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, size(res, 1)), downsample=1, colorbar=1, colorrange=extrema(res), kwargs...)
+function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, size(res, 1)), downsample=1, colorbar=1, colorrange=extrema(res[1:downsample:N, :]), kwargs...)
     ctitle = "S"
     ax.xlabel="Time (s)"
     ax.ylabel="Frequency (Hz)"#, yscale=Makie.pseudolog10);
@@ -279,7 +279,7 @@ function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, 
     ts = Interval(extrema(t[1:downsample:N])...)
     fs = Interval(extrema(exp10.(freqs))...)
     p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :]; colorrange, kwargs...);
-    colorbar > 0 && Colorbar(current_figure()[colorbar, 2], p, label=ctitle)
+    colorbar > 0 && Colorbar(current_figure()[colorbar, 2], p; label=ctitle)
 
     for b in B[AN.peaktime.(B) .∈ (ts,)]
         t, freqs, res = decompose(b.mask)
@@ -291,3 +291,26 @@ function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, 
     return ax
 end
 plotfit(res::AN.LogWaveletMatrix, B::AN.BurstVector; kwargs...) = (ax = Axis(Figure()[1, 1]); plotfit!(ax, res, B; kwargs...); current_figure())
+
+
+
+function compareburststatistics(B::AN.BurstVector, Bs::AN.BurstVector, f::Function, label1="Real", label2="Surrogate"; boundary=nothing, kwargs...)
+    fig = Figure()
+    ax = Axis(fig[1, 1], ylabel = "Probability density", xlabel = string(f))
+    ax2 = Axis(fig[2, 1], ylabel= "Count", xlabel = "log10(p-value)")
+    d = f.(B)
+    ds = f.(Bs)
+    kwargs = ()
+    if !isnothing(boundary)
+        kwargs = (; boundary=boundary)
+    end
+
+    p1 = hist!(ax, d; label=label1, kwargs...)
+    p2 = hist!(ax, ds; label=label2, kwargs...)
+    axislegend(ax)
+
+    ps = AN.pvalues(B, Bs, f)
+    p3 = hist!(ax2, log10.(ps.+eps()))
+    display(fig)
+    return fig, ax, (p1, p2, p3)
+end
