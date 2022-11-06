@@ -51,7 +51,7 @@ function __init__()
 
     ecephys_project_cache.EcephysProjectCache.from_warehouse(manifest=ecephysmanifest)
 
-    @require WGLMakie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" @eval using .Plots
+    @require Makie="ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" @eval include("./Plots/Plots.jl")
     # @require GLMakie="e9467ef8-e4e7-5192-8a1a-b1aee30e663a" @eval using .Plots
 end
 
@@ -89,7 +89,6 @@ include("./SpikeCluster.jl")
 include("./MouseConnectivityCache.jl")
 include("./Ontologies.jl")
 include("./ReferenceSpace.jl")
-include("./Plots/Plots.jl")
 
 
 end
