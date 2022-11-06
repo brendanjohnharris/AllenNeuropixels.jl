@@ -12,6 +12,7 @@ using ContinuousWavelets
 using TimeseriesSurrogates
 using HTTP
 using PyFOOOF
+using ProgressLogging
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -629,6 +630,31 @@ fooofedwavelet(res::WaveletMatrix) = fooofedwavelet(convert(LogWaveletMatrix, re
 function fooofedwavelet(x::LFPVector; kwargs...)
     res = wavelettransform(x; kwargs...)
     fooofedwavelet(res)
+end
+
+function wavelettransform(X::LFPMatrix; kwargs...)
+    res = []
+    threadlog, threadmax = (0, size(X, 2)/Threads.nthreads())
+    @withprogress name="Wavelet transform" begin
+        Threads.@threads for c in 1:axes(X, 2)
+            push!(res, wavelettransform(X[:, c]; kwargs...))
+            Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
+        end
+    end
+    ti = dims(res[1], 1)
+    freq = dims(res[1], 2)
+    channel = dims(X, 2)
+    return DimArray(cat(collect.(res)..., dims=3), (ti, freq, channel))
+end
+
+function wavelettransform!(res::Dict, X::LFPMatrix; kwargs...)
+    threadlog, threadmax = (0, size(X, 2)/Threads.nthreads())
+    @withprogress name="Wavelet transform" begin
+        for c in axes(X, 2)
+            push!(res, dims(X, 2)[c]=>wavelettransform(X[:, c]; kwargs...))
+            Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
+        end
+    end
 end
 
 

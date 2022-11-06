@@ -186,16 +186,17 @@ end
 Detect bursts from a supplied wavelet spectrum, using thresholding
 `boundingstretch` increases the bounding box slightly so for a more accurate fit. Give as a proportion of the threshold bounding box
 """
-function detectbursts(res::LogWaveletMatrix; pass=[30, 100], kwargs...)
+function detectbursts(res::LogWaveletMatrix; pass=[30, 100], dofit=true, kwargs...)
     B = _detectbursts(res; kwargs...)
     basicfilter!(B)
 
-    @info "Fitting burst profiles"
-    fit!(B)
-    sort!(B, by=peaktime)
+    if dofit
+        @info "Fitting burst profiles"
+        fit!(B)
+        sort!(B, by=peaktime)
 
-    isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
-
+        isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
+    end
     return B
 end
 
