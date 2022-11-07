@@ -418,9 +418,13 @@ end
 thetafilter(args...; pass=[2, 8], kwargs...) = bandpass(args...; pass, kwargs...)
 gammafilter(args...; pass=[30, 400], kwargs...) = bandpass(args...; pass, kwargs...)
 broadbandfilter(args...; pass=[10, 400], kwargs...) = bandpass(args...; pass, kwargs...)
+narrowbandfilter(args...; pass=[50, 60], kwargs...) = bandpass(args...; pass, kwargs...)
 
 
-
+# function alignlfp(x, y)
+#     tx = dims(x, Ti)
+#     y[Ti(Near(tx))]
+# end
 
 
 # harmonicbandpass(; kwargs...) = x -> harmonicbandpass(x; kwargs...)
@@ -589,11 +593,11 @@ function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32, rectify=tr
 end
 
 
-function fooof(p::LogWaveletMatrix, freqrange=[5.0, 400.0])
+function fooof(p::LogWaveletMatrix, freqrange=[10.0, 400.0])
     ffreqs = 10.0.^collect(dims(p, Dim{:logfrequency}))
     freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
     spectrum = vec(collect(p))
-    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 20.0]"o, max_n_peaks=5, aperiodic_mode="knee")
+    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 50.0]"o, max_n_peaks=5, aperiodic_mode="knee")
     # fm.report(freqs, spectrum, freqrange)
     fm.add_data(ffreqs, spectrum, freqrange)
     fm.fit()
@@ -604,6 +608,7 @@ function logaperiodicfit(p::LogWaveletMatrix, args...)
     fm = fooof(p, args...)
     # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
     b, k, χ = fm.aperiodic_params_
+    k = min(k, 0.0) # Don't want a negative nee, that leads to logs of negatives
     L = f -> 10.0.^(b - log10(k + (10.0^(f))^χ)) # Expects log frequency values
 end
 
@@ -630,7 +635,7 @@ function fooofedwavelet!(res::LogWaveletMatrix)
     for r in axes(res, Ti)
         res[Ti(r)] .= res[Ti(r)] - l
     end
-    return ()
+    return l
 end
 
 function fooofedwavelet(res::LogWaveletMatrix)

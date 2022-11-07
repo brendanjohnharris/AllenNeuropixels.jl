@@ -33,6 +33,8 @@ amplitude(B::Burst) = B.fit.param[1]
 mask(B::Burst) = B.mask
 # binarymask(B::Burst) = B.mask .> B.thresh[1]
 peaktime(B::Burst) = B.fit.param[2]
+maxfreq(B::Burst) = exp10(dims(mask(B), 2)[findmax(mask(B))[2][2]])
+maxtime(B::Burst) = dims(mask(B), 1)[findmax(mask(B))[2][1]]
 logpeakfreq(B::Burst) = B.fit.param[3]
 peakfreq(B::Burst) = B |> logpeakfreq |> exp10
 df(B::Burst) = mean(diff(collect(dims(mask(B), Dim{:logfrequency}))))
@@ -138,7 +140,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, boundingstretch=0.5, method=:std, areacutoff=1)
+function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=1, boundingstretch=0.5, method=:std, areacutoff=1)
     @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     @info "Thresholding curvatures"
@@ -250,7 +252,11 @@ function fit!(ℬ::AbstractVector{<:AbstractBurst})
     threadlog, threadmax = (0, length(ℬ)/Threads.nthreads())
     @withprogress name="Fitting bursts" begin
         Threads.@threads for B in ℬ
-            fit!(B)
+            try
+                fit!(B)
+            catch e
+                @warn "Could not fit a burst. Skipping"
+            end
             Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
         end
     end
@@ -283,6 +289,9 @@ function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
             xy[μ0, 2], # μ₂
             (x |> extrema |> collect |> diff |> first)/3, # σ₁
             (y |> extrema |> collect |> diff |> first)/3] # σ₂
+    T = eltype(z)
+    xy = xy .|> T
+    p0 = p0 .|> T
     fit = LsqFit.curve_fit(gaussian2!, xy, z, p0; inplace=true, autodiff=:forwarddiff)
 end
 
