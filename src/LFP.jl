@@ -237,7 +237,7 @@ function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
     LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
 end
 
-function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp", n=1)
+function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp", n=1, kwargs...)
     session = Session(sessionid)
     if isnothing(structure)
         structure = getchannels(session, probeid).id |> getstructureacronyms |> unique |> skipmissing |> collect |> Vector{String}
@@ -325,7 +325,7 @@ function rectifytime(X::AbstractDimArray; tol=5) # tol gives significant figures
 end
 
 function stimulusintervals(session, stim)
-    stimtable = getstimuli(session, stim)
+    stimtable = getepochs(session, stim)
     stimtable.interval = [a..b for (a, b) in zip(stimtable.start_time, stimtable.stop_time)]
     return stimtable
 end
@@ -608,7 +608,7 @@ function logaperiodicfit(p::LogWaveletMatrix, args...)
     fm = fooof(p, args...)
     # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
     b, k, χ = fm.aperiodic_params_
-    k = min(k, 0.0) # Don't want a negative nee, that leads to logs of negatives
+    k = max(k, 0.0) # Don't want a negative nee, that leads to logs of negatives
     L = f -> 10.0.^(b - log10(k + (10.0^(f))^χ)) # Expects log frequency values
 end
 
