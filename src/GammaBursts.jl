@@ -215,7 +215,6 @@ function detectbursts(res::LogWaveletMatrix; pass=nothing, dofit=true, detection
         @info "Fitting burst profiles"
         fit!(B)
         sort!(B, by=peaktime)
-
     end
     return B
 end
