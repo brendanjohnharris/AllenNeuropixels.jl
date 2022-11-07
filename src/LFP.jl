@@ -416,7 +416,8 @@ function bandpass(X::LFPMatrix, dim=Dim{:channel}; kwargs...)
 end
 
 thetafilter(args...; pass=[2, 8], kwargs...) = bandpass(args...; pass, kwargs...)
-gammafilter(args...; pass=[30, 150], kwargs...) = bandpass(args...; pass, kwargs...)
+gammafilter(args...; pass=[30, 400], kwargs...) = bandpass(args...; pass, kwargs...)
+broadbandfilter(args...; pass=[10, 400], kwargs...) = bandpass(args...; pass, kwargs...)
 
 
 
@@ -588,11 +589,11 @@ function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32, rectify=tr
 end
 
 
-function fooof(p::LogWaveletMatrix, freqrange=[10.0, 300.0])
+function fooof(p::LogWaveletMatrix, freqrange=[5.0, 400.0])
     ffreqs = 10.0.^collect(dims(p, Dim{:logfrequency}))
     freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
     spectrum = vec(collect(p))
-    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 20.0]"o, max_n_peaks=4, aperiodic_mode="knee")
+    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 20.0]"o, max_n_peaks=5, aperiodic_mode="knee")
     # fm.report(freqs, spectrum, freqrange)
     fm.add_data(ffreqs, spectrum, freqrange)
     fm.fit()

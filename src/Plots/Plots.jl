@@ -1,5 +1,5 @@
 module Plots
-    using Makie
+    using ..Makie
     using JSServe
     using Colors
     using Meshing
