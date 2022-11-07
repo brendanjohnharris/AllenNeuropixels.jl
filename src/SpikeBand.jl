@@ -30,14 +30,20 @@ function getspiketimes(S::AbstractSession, unitids::Vector{Int})
     Dict(a => b for (a,b) in spiketimes if a in unitids)
 end
 
-function formatspiketimes(; sessionid=757216464, structure="VISp", stimulus="gabors", n=1)
+function formatspiketimes(; sessionid=757216464, structure="VISp", stimulus="gabors", n=1, filter=true, kwargs...)
     S = Session(sessionid)
+
     spiketimes = getspiketimes(S, structure)
     I = stimulusintervals(S, stimulus).interval[n]
     ks = keys(spiketimes)
     vals = values(spiketimes)
     vals = [v[in.(v, (I,))] for v in vals]
-    Dict(k => v for (k,v) in zip(ks, vals))
+    if filter
+        metrics = getunitanalysismetrics(S)
+        Sp = Dict(k => v for (k,v) in zip(ks, vals) if k ∈ metrics.ecephys_unit_id)
+    else
+        Sp = Dict(k => v for (k,v) in zip(ks, vals))
+    end
 end
 
 
@@ -316,3 +322,37 @@ function lfpspikesimilarity(session, probeid, X::LFPMatrix, Y::Dict; normalize=i
     sims = [lfpspikesimilarity(X[:, i], spikes[i]; kwargs...) for i in eachindex(spikes)]
     return Dict(units .=> sims)
 end
+
+function getclosestchannels(session, probeid, units, channels)
+    channels = collect(channels)
+    cdepths = getchanneldepths(session, probeid, channels)
+    udepths = getunitdepths(session, probeid, units)
+    dists = [abs.(cdepths .- u) for u in udepths]
+    idxs = last.(findmin.(dists))
+    channels = channels[idxs]
+    Dict(units .=> channels)
+end
+getclosestchannels(sessionid::Int, args...) = getclosestchannels(Session(sessionid), args...)
+
+function getpeakchannels(session, units)
+    metrics = getunitmetrics(session)
+    check = all(units .∈ (metrics.unit_id,))
+    if !check
+        @error "Some units do not have corresponding metrics"
+    end
+    metrics = subset(metrics, :unit_id, units)
+    channels = Dict(zip(units, metrics.peak_channel_id))
+end
+getpeakchannels(sessionid::Int, args...) = getpeakchannels(Session(sessionid), args...)
+
+
+function getunitchannels(session, units)
+    metrics = getunitanalysismetrics(session)
+    check = all(units .∈ (metrics.ecephys_unit_id,))
+    if !check
+        @error "Some units do not have corresponding metrics"
+    end
+    metrics = subset(metrics, :ecephys_unit_id, units)
+    channels = Dict(zip(metrics.ecephys_channel_id))
+end
+getunitchannels(sessionid::Int, args...) = getunitchannels(Session(sessionid), args...)

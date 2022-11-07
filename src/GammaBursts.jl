@@ -57,7 +57,7 @@ end
 
 function bandfilter!(B::BurstVector; pass=[50, 60])
     pass = Interval(pass...)
-    filter!(b->peakfreq(b) ∈ pass, B)
+    filter!(b->maxfreq(b) ∈ pass, B)
 end
 
 function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[50, 60]) # fmin in Hz, tmin in s
@@ -161,7 +161,7 @@ function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=1, bound
     bb = ImageMorphology.component_boxes(components)[2:end]
     bb = [widen(b, boundingstretch; upperbound=size(res)) for b in bb]
     masks = [res[b[1][1]:b[2][1], b[1][2]:b[2][2]] for b in bb]
-    B = Burst.(masks, ((minimum(_res[_res]), method, thresh),), peaks)[idxs]
+    B = Burst.(masks, ((method, thresh, curvaturethresh),), peaks)[idxs]
 end
 
 function mmap_detectbursts(res::LogWaveletMatrix; window=50000, kwargs...)
@@ -206,16 +206,16 @@ Detect bursts from a supplied wavelet spectrum, using thresholding
 `boundingstretch` increases the bounding box slightly so for a more accurate fit. Give as a proportion of the threshold bounding box
 `detection` can be `_detectbursts` or `mmap_detectbursts`
 """
-function detectbursts(res::LogWaveletMatrix; pass=[30, 100], dofit=true, detection=_detectbursts, kwargs...)
+function detectbursts(res::LogWaveletMatrix; pass=nothing, dofit=true, detection=_detectbursts, kwargs...)
     B = detection(res; kwargs...)
     basicfilter!(B)
+    isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
 
     if dofit
         @info "Fitting burst profiles"
         fit!(B)
         sort!(B, by=peaktime)
 
-        isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
     end
     return B
 end
