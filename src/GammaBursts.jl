@@ -162,6 +162,23 @@ function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, bound
     B = Burst.(masks, ((minimum(_res[_res]), method, thresh),), peaks)[idxs]
 end
 
+function mmap_detectbursts(res::LogWaveletMatrix; window=50000, kwargs...)
+    ti = _slidingwindow(collect(dims(res, Ti)), window; tail=true)
+    ti = [Interval(extrema(t)...) for t in ti]
+    B = Vector{Burst}()
+    threadlog, threadmax = (0, length(ti))
+    @withprogress name="Burst detection" begin
+        for ts in ti
+            subres = res[Ti(ts)]
+            append!(B, _detectbursts(subres; kwargs...))
+            if threadmax > 1
+                Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
+            end
+        end
+    end
+    return B
+end
+
 function pvalues(B::BurstVector, Bs::BurstVector, f::Function; test=OneSampleTTest, tail=:left)
     d = f.(B)
     ds = f.(Bs)
@@ -185,9 +202,10 @@ end
 """
 Detect bursts from a supplied wavelet spectrum, using thresholding
 `boundingstretch` increases the bounding box slightly so for a more accurate fit. Give as a proportion of the threshold bounding box
+`detection` can be `_detectbursts` or `mmap_detectbursts`
 """
-function detectbursts(res::LogWaveletMatrix; pass=[30, 100], dofit=true, kwargs...)
-    B = _detectbursts(res; kwargs...)
+function detectbursts(res::LogWaveletMatrix; pass=[30, 100], dofit=true, detection=_detectbursts, kwargs...)
+    B = detection(res; kwargs...)
     basicfilter!(B)
 
     if dofit

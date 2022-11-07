@@ -13,6 +13,7 @@ using TimeseriesSurrogates
 using HTTP
 using PyFOOOF
 using ProgressLogging
+using Mmap
 
 LFPVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:DimensionalData.TimeDim, B}
 LFPMatrix = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:DimensionalData.TimeDim, B<:Dim{:channel}}
@@ -568,18 +569,21 @@ end
 DSP.hilbert(X::LFPMatrix) = mapslices(hilbert, X, dims=Ti)
 DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims(X))
 
-
-
-function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32) # β = 1 means linear in log space
-    x = rectifytime(x)
-    c = wavelet(moth; β, Q);
-    res = abs.(ContinuousWavelets.cwt(x, c))
-    t = dims(x, Ti)
+function waveletfreqs(t; moth=Morlet(2π), β=1, Q=32)
     n = length(t)
     fs = 1.0./step(t) # Assume rectified time dim
     W = ContinuousWavelets.computeWavelets(n, wavelet(moth; β, Q);)[1]
     freqs = getMeanFreq(W, fs)
     freqs[1] = 0
+    return freqs
+end
+
+function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32, rectify=true) # β = 1 means linear in log space
+    rectify && (x = rectifytime(x))
+    c = wavelet(moth; β, Q);
+    res = abs.(ContinuousWavelets.cwt(x, c))
+    t = dims(x, Ti)
+    freqs = waveletfreqs(t; moth, β, Q)
     return DimArray(res, (t, Dim{:frequency}(freqs)))
 end
 
@@ -612,7 +616,7 @@ function _fooofedwavelet(res::LogWaveletMatrix)
 end
 _fooofedwavelet(res::WaveletMatrix) = _fooofedwavelet(convert(LogWaveletMatrix, res))
 
-function fooofedwavelet(res::LogWaveletMatrix)
+function fooofedwavelet!(res::LogWaveletMatrix)
     L = _fooofedwavelet(res)
     ffreqs = dims(res, Dim{:logfrequency}) |> collect
     # f = Makie.Figure()
@@ -622,7 +626,16 @@ function fooofedwavelet(res::LogWaveletMatrix)
     # f
     # Makie.lines(ffreqs[10:end], psd[:][10:end].-L.(ffreqs)[10:end], color=:cornflowerblue)
     l = DimArray(L.(ffreqs), (Dim{:logfrequency}(ffreqs),))
-    res = mapslices(x -> x - l, res, dims=Dim{:logfrequency})
+    for r in axes(res, Ti)
+        res[Ti(r)] .= res[Ti(r)] - l
+    end
+    return ()
+end
+
+function fooofedwavelet(res::LogWaveletMatrix)
+    _res = deepcopy(res)
+    fooofedwavelet!(_res)
+    return _res
 end
 
 fooofedwavelet(res::WaveletMatrix) = fooofedwavelet(convert(LogWaveletMatrix, res))
@@ -647,11 +660,57 @@ function wavelettransform(X::LFPMatrix; kwargs...)
     return DimArray(cat(collect.(res)..., dims=3), (ti, freq, channel))
 end
 
-function wavelettransform!(res::Dict, X::LFPMatrix; kwargs...)
-    threadlog, threadmax = (0, size(X, 2)/Threads.nthreads())
+
+
+function mmapwavelettransform(x::LFPVector; window=100000, kwargs...)
+    x = rectifytime(x)
+    𝓍 = _slidingwindow(x, window; tail=:overlap)
+    t = dims(x, Ti)
+    freqs = waveletfreqs(dims(𝓍[1], Ti); kwargs...)
+    sz = (length(t), length(freqs))
+    fname = tempname()
+    s = open(fname, "w+"); write.((s,), sz)
+    W = mmap(s, Matrix{Float32}, sz)
+    res = DimArray(W, (t, Dim{:frequency}(freqs)))
+    threadlog, threadmax = (0, length(𝓍))
     @withprogress name="Wavelet transform" begin
-        for c in axes(X, 2)
-            push!(res, dims(X, 2)[c]=>wavelettransform(X[:, c]; kwargs...))
+        for _x in 𝓍
+            subres = wavelettransform(_x; rectify=false, kwargs...)
+            tilims = Interval{:closed, :closed}((extrema(dims(subres, 1)))...)
+            flims = Interval{:closed, :closed}(extrema(dims(subres, 2))...)
+            res[Ti(tilims), Dim{:frequency}(flims)] .= subres
+            if threadmax > 1
+                Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
+            end
+        end
+    end
+    close(s)
+    return res, fname
+end
+
+function wavelettransform!(res::Dict, LFP::LFPMatrix; window=false, kwargs...)
+    threadlog, threadmax = (0, size(LFP, 2)/Threads.nthreads())
+    @withprogress name="Wavelet transform" begin
+        for c in axes(LFP, 2)
+            x = LFP[:, c]
+            if window > 0
+                # * Window the time series and calculate the wavelet transform in manageable chunks
+                𝓍 = _slidingwindow(x, window)
+                t = dims(x, Ti)
+                freqs = waveletfreqs(dims(𝓍[1], Ti); kwargs...)
+                sz = (length(t), length(freqs))
+                s = open(tempname(), "w+"); write.((s,), sz)
+                W = mmap(s, Matrix{Float32}, sz)
+                _res = DimArray(W, (t, Dim{:frequency}(freqs)))
+                for _x in 𝓍
+                    subres = wavelettransform(_x; kwargs...)
+                    tilims = Interval(extrema(dims(subres, 1))...)
+                    flims = Interval(extrema(dims(subres, 2))...)
+                    _res[Ti(tilims), Dim{:frequency}(flims)] .= subres
+                end
+            else
+                push!(res, dims(LFP, 2)[c]=>wavelettransform(x; kwargs...)) # Doesnt actually write to file
+            end
             Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
         end
     end
