@@ -593,37 +593,45 @@ function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32, rectify=tr
 end
 
 
-function fooof(p::LogWaveletMatrix, freqrange=[10.0, 400.0])
+function fooof(p::LogWaveletMatrix, freqrange=[1.0, 300.0])
     ffreqs = 10.0.^collect(dims(p, Dim{:logfrequency}))
     freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
     spectrum = vec(collect(p))
-    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 50.0]"o, max_n_peaks=5, aperiodic_mode="knee")
+    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 50.0]"o, max_n_peaks=10, aperiodic_mode="knee", peak_threshold=0.5)
+    # if fm.aperiodic_params_[2] < 0.0
+    #     fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 20.0]"o, max_n_peaks=4, aperiodic_mode="fixed")
+    # end
     # fm.report(freqs, spectrum, freqrange)
     fm.add_data(ffreqs, spectrum, freqrange)
     fm.fit()
     return fm
 end
 
-function logaperiodicfit(p::LogWaveletMatrix, args...)
-    fm = fooof(p, args...)
+function logaperiodicfit(p::LogWaveletMatrix, freqrange=[1.0, 300.0], args...; doplot=false)
+    fm = fooof(p, freqrange, args...)
+    if doplot != false
+        p = fm.plot(; plt_log=true, file_name=doplot, save_fig=true)
+    end
     # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
     b, k, χ = fm.aperiodic_params_
-    k = max(k, 0.0) # Don't want a negative nee, that leads to logs of negatives
+    k = max(k, 0.01)
+    # b, k, χ = length(ps) == 3 ? ps : (ps[1], 0.0, ps[2])
     L = f -> 10.0.^(b - log10(k + (10.0^(f))^χ)) # Expects log frequency values
 end
 
 aperiodicfit(args...) = f -> (logaperiodicfit(args...)(log10(f)))
 
 
-function _fooofedwavelet(res::LogWaveletMatrix)
+function _fooofedwavelet(res::LogWaveletMatrix, args...; kwargs...)
     psd = mean(res, dims=Ti)
     ffreqs = dims(psd, Dim{:logfrequency}) |> collect
-    L = logaperiodicfit(psd)
+    L = logaperiodicfit(psd, args...; kwargs...)
 end
 _fooofedwavelet(res::WaveletMatrix) = _fooofedwavelet(convert(LogWaveletMatrix, res))
 
-function fooofedwavelet!(res::LogWaveletMatrix)
-    L = _fooofedwavelet(res)
+function fooofedwavelet!(res::LogWaveletMatrix, freqrange=[1.0, 300.0]; kwargs...)
+    psd = mean(res, dims=Ti)
+    L = logaperiodicfit(psd, freqrange; kwargs...)
     ffreqs = dims(res, Dim{:logfrequency}) |> collect
     # f = Makie.Figure()
     # ax = Axis(f[1, 1]; xlabel="Frequency (Hz)")
@@ -632,6 +640,8 @@ function fooofedwavelet!(res::LogWaveletMatrix)
     # f
     # Makie.lines(ffreqs[10:end], psd[:][10:end].-L.(ffreqs)[10:end], color=:cornflowerblue)
     l = DimArray(L.(ffreqs), (Dim{:logfrequency}(ffreqs),))
+    fmin = log10(minimum(freqrange))
+    l[ffreqs .< fmin] = psd[ffreqs .< fmin] # Ensures no funky behaviour outside of the fit bounds
     for r in axes(res, Ti)
         res[Ti(r)] .= res[Ti(r)] - l
     end
