@@ -259,6 +259,7 @@ function fit!(ℬ::AbstractVector{<:AbstractBurst})
             Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
         end
     end
+    deleteat!(ℬ, findall(.!isa.(getfield.(ℬ, (:fit,)), (LsqFit.LsqFitResult,))))
 end
 
 function gaussian2!(F, xy, p)
