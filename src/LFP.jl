@@ -324,8 +324,13 @@ function rectifytime(X::AbstractDimArray; tol=5) # tol gives significant figures
     X = set(X, Ti => times)
 end
 
-function stimulusintervals(session, stim)
+function stimulusepochs(session, stim)
     stimtable = getepochs(session, stim)
+    stimtable.interval = [a..b for (a, b) in zip(stimtable.start_time, stimtable.stop_time)]
+    return stimtable
+end
+function stimulusintervals(session, stim)
+    stimtable = getstimuli(session, stim)
     stimtable.interval = [a..b for (a, b) in zip(stimtable.start_time, stimtable.stop_time)]
     return stimtable
 end

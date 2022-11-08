@@ -34,7 +34,7 @@ function formatspiketimes(; sessionid=757216464, structure="VISp", stimulus="gab
     S = Session(sessionid)
 
     spiketimes = getspiketimes(S, structure)
-    I = stimulusintervals(S, stimulus).interval[n]
+    I = stimulusepochs(S, stimulus).interval[n]
     ks = keys(spiketimes)
     vals = values(spiketimes)
     vals = [v[in.(v, (I,))] for v in vals]
@@ -89,7 +89,7 @@ function _getspikes(units, times, amplitudes, _times, bin, rectify, count)
         _times = times[u]
         _amplitudes = amplitudes[u]
         for t in eachindex(_times) # Hella slow
-            spikes[Ti(Near(_times[t])), At(Dim{:unit}(units[u]))] += (count ? 1 : _amplitudes[t])
+            spikes[Ti(Near(_times[t])), Dim{:unit}(At(units[u]))] += (count ? 1 : _amplitudes[t])
         end
         @logprogress u/length(units)
     end
@@ -102,6 +102,8 @@ We combine the spike times and spike amplitudes into one sparse array, using a g
 """
 function getspikes(S, timebounds=nothing; bin=1e-4, rectify=4, structure=nothing, count=true)
     times = isnothing(structure) ? getspiketimes(S) : getspiketimes(S, structure)
+    validunits = findvalidunits(S, keys(times))
+    times = Dict(k => v for (k,v) in times if k ∈ validunits)
     units = times |> keys |> collect
     times = times |> values |> collect
     amplitudes = S |> getspikeamplitudes
