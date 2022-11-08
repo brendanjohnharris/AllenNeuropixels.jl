@@ -55,6 +55,12 @@ function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor
     ax.ylabel = "Unit"
 end
 
+function plotspikebursts!(ax, X::AN.LFPVector, Y::AN.LFPVector, Z::Dict; secondlinecolor=colorant"#EF9901", kwargs...)
+    plotspikebursts!(ax, X, Z; kwargs...)
+    Y = (Y .- mean(Y))./std(Y)
+    lines!(ax, dims(Y, Ti)|>collect, 0.1.*collect(length(Z).*(Y.-minimum(Y))./(maximum(Y) - minimum(Y))); color=secondlinecolor)
+end
+
 
 
 function plotspikebursts!(ax, session, probeid, X::AN.LFPMatrix, Y::Dict; marker=:vline, colormap=:turbo, markercolor=:red, markersize=15, maxn=min(size(X, 1), 20000), kwargs...)
