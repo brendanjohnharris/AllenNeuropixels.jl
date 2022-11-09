@@ -24,6 +24,8 @@ dimmatrix(a, b) = AbstractDimArray{T, 2, Tuple{A, B}} where {T, A<:a, B<:b}
 export dimmatrix
 
 PSDMatrix = dimmatrix(:frequency, :channel)
+PSDVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:Dim{:frequency}, B}
+LogPSDVector = AbstractDimArray{T, 1, Tuple{A}, B} where {T, A<:Dim{:logfrequency}, B}
 
 duration(X::AbstractDimArray) = diff(extrema(dims(X, Ti))|>collect)|>first
 function samplingperiod(X::AbstractDimArray)
@@ -43,11 +45,16 @@ function Base.convert(::Type{LogWaveletMatrix}, x::WaveletMatrix)
     x = DimArray(x, (dims(x, Ti), Dim{:logfrequency}(log10.(dims(x, :frequency)))))
     x = x[:, .!isinf.(dims(x, :logfrequency))]
 end
+function Base.convert(::Type{LogPSDVector}, x::PSDVector)
+    x = DimArray(x, (Dim{:logfrequency}(log10.(dims(x, :frequency))),))
+    x = x[.!isinf.(dims(x, :logfrequency))]
+end
 function Base.convert(::Type{WaveletMatrix}, x::LogWaveletMatrix)
     x = DimArray(x, (dims(x, Ti), Dim{:frequency}(exp10.(dims(x, :logfrequency)))))
 end
 waveletmatrix(res::LogWaveletMatrix) = convert(WaveletMatrix, res)
 logwaveletmatrix(res::WaveletMatrix) = convert(LogWaveletMatrix, res)
+logpsdvector(res::PSDVector) = convert(LogPSDVector, res)
 
 
 function downloadlfp(S::AbstractSession, probeid::Int)
@@ -627,6 +634,7 @@ end
 aperiodicfit(args...) = f -> (logaperiodicfit(args...)(log10(f)))
 
 
+
 function _fooofedwavelet(res::LogWaveletMatrix, args...; kwargs...)
     psd = mean(res, dims=Ti)
     ffreqs = dims(psd, Dim{:logfrequency}) |> collect
@@ -665,6 +673,27 @@ function fooofedwavelet(x::LFPVector; kwargs...)
     res = wavelettransform(x; kwargs...)
     fooofedwavelet(res)
 end
+
+function aperiodicfit(psd::PSDVector, freqrange=[1.0, 300.0])
+    ffreqs = dims(psd, Dim{:frequency}) |> collect
+    freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
+    spectrum = vec(collect(psd))
+    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 50.0]"o, max_n_peaks=10, aperiodic_mode="knee", peak_threshold=0.5)
+    fm.add_data(ffreqs, spectrum, freqrange)
+    fm.fit()
+    b, k, χ = fm.aperiodic_params_
+    k = max(k, 0.01)
+    L = f -> 10.0.^(b - log10(k + (f)^χ))
+end
+
+function fooofedspectrum!(psd::PSDMatrix, freqrange=[1.0, 300.0]; kwargs...)
+    L = aperiodicfit.(eachcol(psd), (freqrange,); kwargs...)
+    ffreqs = dims(psd, Dim{:frequency}) |> collect
+    L = hcat([l.(ffreqs) for l in L]...)
+    psd .= psd .- L
+end
+
+
 
 function wavelettransform(X::LFPMatrix; kwargs...)
     res = []
