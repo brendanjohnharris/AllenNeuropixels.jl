@@ -141,12 +141,12 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
 end
 
 function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=1, boundingstretch=0.5, method=:std, areacutoff=1)
-    @info "Thresholding amplitudes"
+    # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
-    @info "Thresholding curvatures"
+    # @info "Thresholding curvatures"
     _res = _res .& (burstcurvature(res, curvaturethresh) .> 0)
 
-    @info "Finding connected components"
+    # @info "Finding connected components"
     components = ImageMorphology.label_components(_res|>Array)
     areas = ImageMorphology.component_lengths(components)[2:end]
     idxs = areas .≥ areacutoff
