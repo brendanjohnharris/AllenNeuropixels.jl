@@ -196,8 +196,8 @@ function pvalues(B::BurstVector, Bs::BurstVector, fs::AbstractVector{<:Function}
     p = pvalue.(tests).*length(d) # Bonferroni correction
 end
 
-function significancefilter!(B::BurstVector, Bs::BurstVector, f; test=OneSampleTTest, tail=:left, thresh=0.05)
-    p = pvalues(B, Bs, f; test, tail)
+function significancefilter!(B::BurstVector, Bs::BurstVector, f; thresh=0.05, kwargs...)
+    p = pvalues(B, Bs, f; kwargs...)
     deleteat!(B, p .> thresh)
 end
 
@@ -206,7 +206,7 @@ Filter a vector of bursts based of a vector of surrogate bursts
 """
 function surrogatefilter!(B::BurstVector, Bs::BurstVector; stats = [duration, peakfreq], joint=true)
     if joint
-
+        significancefilter!(B, Bs, stats; test=OneSampleHotellingT2Test, tail=nothing)
     else
         for s in stats
             significancefilter!(B, Bs, s; test=OneSampleTTest, tail=:left, thresh=0.01)
@@ -402,4 +402,38 @@ function burstmask(res::LogWaveletMatrix, peak; thresh=0.8, n=3)#, diffthresh=0.
     bounds[3:4] .= 𝑓[Int.(bounds[3:4])]
 
     mask = res[Ti(Interval(bounds[1:2]...)), Dim{:frequency}(Interval(bounds[3:4]...))]
+end
+
+
+"""
+Pair each burst in A with a burst in B, i.e. where the burst in A is closest in time to the burst in B. Not all bursts will be paired.
+"""
+function pairbursts(A::BurstVector, B::BurstVector; feed=:forward)
+    B = sort(deepcopy(B), by=peaktime)
+    A = sort(deepcopy(A), by=peaktime)
+    C = []
+    D = []
+    ta = peaktime.(A)
+    tb = peaktime.(B)
+    for (i, a) in enumerate(A)
+        ts = ta[i] .> tb
+        t = findlast(ts)
+        if ~isnothing(t)
+            if feed == :forward
+                ts[t+1] = true
+                t = findlast(ts)
+            end
+            push!(C, a)
+            push!(D, B[t])
+            deleteat!(B, ts) # Remove all bursts before `a``
+            deleteat!(tb, ts)
+        end
+    end
+    return C, D
+end
+
+
+function burstdelta(A::BurstVector, B::BurstVector; feed=:forward)
+    C, D = pairbursts(A, B; feed)
+    Δ = peaktime.(D) .- peaktime.(C)
 end
