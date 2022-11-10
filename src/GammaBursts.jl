@@ -142,7 +142,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=1, boundingstretch=0.5, method=:std, areacutoff=1)
+function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, boundingstretch=0.5, method=:std, areacutoff=1)
     # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     # @info "Thresholding curvatures"

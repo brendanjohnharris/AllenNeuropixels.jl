@@ -271,14 +271,14 @@ function plotfit!(ax, b::AN.Burst; kwargs...)
 end
 plotfit(B::AN.Burst; kwargs...) = (ax = Axis3(Figure()[1, 1]); plotfit!(ax, B; kwargs...); current_figure())
 
-function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, size(res, 1)), downsample=1, colorbar=1, colorrange=extrema(res[1:downsample:N, :]), kwargs...)
+function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, size(res, 1)), downsample=1, colorbar=1, colorrange=extrema(res[1:downsample:N, :]), colormap=:turbo, kwargs...)
     ctitle = "S"
     ax.xlabel="Time (s)"
     ax.ylabel="Frequency (Hz)"#, yscale=Makie.pseudolog10);
     t, freqs, res = decompose(res)
     ts = Interval(extrema(t[1:downsample:N])...)
     fs = Interval(extrema(exp10.(freqs))...)
-    p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :]; colorrange, kwargs...);
+    p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :]; colorrange, colormap, kwargs...);
     colorbar > 0 && Colorbar(current_figure()[colorbar, 2], p; label=ctitle)
 
     for b in B[AN.peaktime.(B) .∈ (ts,)]

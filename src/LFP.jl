@@ -716,6 +716,7 @@ function mmapwavelettransform(x::LFPVector; window=100000, kwargs...)
     x = rectifytime(x)
     𝓍 = _slidingwindow(x, window; tail=:overlap)
     t = dims(x, Ti)
+    e = step(t)/2
     freqs = waveletfreqs(dims(𝓍[1], Ti); kwargs...)
     sz = (length(t), length(freqs))
     fname = tempname()
@@ -726,8 +727,10 @@ function mmapwavelettransform(x::LFPVector; window=100000, kwargs...)
     @withprogress name="Wavelet transform" begin
         for _x in 𝓍
             subres = wavelettransform(_x; rectify=false, kwargs...)
-            tilims = Interval{:closed, :closed}((extrema(dims(subres, 1)))...)
-            flims = Interval{:closed, :closed}(extrema(dims(subres, 2))...)
+            tx = extrema(dims(subres, 1))
+            fx = extrema(dims(subres, 2))
+            tilims = Interval{:closed, :closed}(tx[1]-e, tx[2]+e)
+            flims = Interval{:closed, :closed}(fx[1]-e, fx[2]+e)
             res[Ti(tilims), Dim{:frequency}(flims)] .= subres
             if threadmax > 1
                 Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
@@ -754,8 +757,10 @@ function wavelettransform!(res::Dict, LFP::LFPMatrix; window=false, kwargs...)
                 _res = DimArray(W, (t, Dim{:frequency}(freqs)))
                 for _x in 𝓍
                     subres = wavelettransform(_x; kwargs...)
-                    tilims = Interval(extrema(dims(subres, 1))...)
-                    flims = Interval(extrema(dims(subres, 2))...)
+                    tx = extrema(dims(subres, 1))
+                    fx = extrema(dims(subres, 2))
+                    tilims = Interval{:closed, :closed}(tx[1]-eps(), tx[2]+eps())
+                    flims = Interval{:closed, :closed}(fx[1]-eps(), fx[2]+eps())
                     _res[Ti(tilims), Dim{:frequency}(flims)] .= subres
                 end
             else
