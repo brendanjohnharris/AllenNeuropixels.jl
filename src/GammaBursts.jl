@@ -60,6 +60,8 @@ function bandfilter!(B::BurstVector; pass=[50, 60])
     filter!(b->maxfreq(b) ∈ pass, B)
 end
 
+bandfilter!(; kwargs...) = x->bandfilter!(x; kwargs...)
+
 function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[50, 60]) # fmin in Hz, tmin in s
     fmin = log10(fmin)
     pass = Interval(pass...)
