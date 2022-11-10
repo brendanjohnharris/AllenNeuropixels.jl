@@ -189,7 +189,14 @@ function pvalues(B::BurstVector, Bs::BurstVector, f::Function; test=OneSampleTTe
     p = pvalue.(test.((ds,), d); tail).*length(d) # Bonferroni correction
 end
 
-function significancefilter!(B::BurstVector, Bs::BurstVector, f::Function; test=OneSampleTTest, tail=:left, thresh=0.05)
+function pvalues(B::BurstVector, Bs::BurstVector, fs::AbstractVector{<:Function}; test=OneSampleHotellingT2Test, tail=nothing)
+    d = collect.(zip([f.(B) for f in fs]...))
+    ds = hcat([f.(Bs) for f in fs]...)
+    tests = test.((ds,), d)
+    p = pvalue.(tests).*length(d) # Bonferroni correction
+end
+
+function significancefilter!(B::BurstVector, Bs::BurstVector, f; test=OneSampleTTest, tail=:left, thresh=0.05)
     p = pvalues(B, Bs, f; test, tail)
     deleteat!(B, p .> thresh)
 end
@@ -197,9 +204,13 @@ end
 """
 Filter a vector of bursts based of a vector of surrogate bursts
 """
-function surrogatefilter!(B::BurstVector, Bs::BurstVector; stats = [duration, amplitude])
-    for s in stats
-        significancefilter!(B, Bs, s; test=OneSampleTTest, tail=:left, thresh=0.01)
+function surrogatefilter!(B::BurstVector, Bs::BurstVector; stats = [duration, peakfreq], joint=true)
+    if joint
+
+    else
+        for s in stats
+            significancefilter!(B, Bs, s; test=OneSampleTTest, tail=:left, thresh=0.01)
+        end
     end
 end
 
