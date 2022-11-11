@@ -71,12 +71,21 @@ function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[50, 60]) #
     # ..... Other stuff
 end
 
-
+# # Old method, global distribution
+# function threshold(res, thresh, method)
+#     if method == :percentile
+#         cutoff = percentile(res[:], thresh)
+#     elseif method == :std
+#         cutoff = thresh*std(res[:])
+#     end
+# end
 function threshold(res, thresh, method)
     if method == :percentile
-        cutoff = percentile(res[:], thresh)
+        cutoff = mapslices(x->percentile(x, thresh), res, dims=Ti)
     elseif method == :std
-        cutoff = thresh*std(res[:])
+        cutoff = thresh*mapslices(std, res, dims=Ti)
+    elseif method = :iqr
+        cutoff = thresh*mapslices(iqr, res, dims=Ti)./1.35 # 1.35 to be consistent with std threshold on normal data
     end
 end
 
@@ -90,7 +99,7 @@ end
 """
 Threshold a wavelet spectrum using either a percentile cutoff (`method=:percentile`) or a standard deviation cutoff (`method=:std`) of either each frequency band (`eachfreq=true`) or the entire spectrum. You probably want to FOOOF the spectrum before this
 """
-function burstthreshold!(res::LogWaveletMatrix, thresh; method=:std, zerograd=0.0)
+function burstthreshold!(res::LogWaveletMatrix, thresh; method=:iqr, zerograd=0.0)
     @assert dims(res, Ti).val.data isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
     cutoffs = threshold(res, thresh, method)
     res[res .< cutoffs] .= 0.0
@@ -142,7 +151,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, boundingstretch=0.5, method=:std, areacutoff=1)
+function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, boundingstretch=0.5, method=:iqr, areacutoff=1)
     # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     # @info "Thresholding curvatures"
