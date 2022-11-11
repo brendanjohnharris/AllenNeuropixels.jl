@@ -209,6 +209,7 @@ function surrogatefilter!(B::BurstVector, Bs::BurstVector; stats = [duration, pe
         significancefilter!(B, Bs, stats; test=OneSampleHotellingT2Test, tail=nothing)
     else
         for s in stats
+            # ! The problem is, the distribution changes with each of these. Will want to take the maximum p-value, rather successively filtering
             significancefilter!(B, Bs, s; test=OneSampleTTest, tail=:left, thresh=0.01)
         end
     end
