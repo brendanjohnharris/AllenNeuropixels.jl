@@ -84,7 +84,7 @@ function threshold(res, thresh, method)
         cutoff = mapslices(x->percentile(x, thresh), res, dims=Ti)
     elseif method == :std
         cutoff = thresh*mapslices(std, res, dims=Ti)
-    elseif method = :iqr
+    elseif method == :iqr
         cutoff = thresh*mapslices(iqr, res, dims=Ti)./1.35 # 1.35 to be consistent with std threshold on normal data
     end
 end
