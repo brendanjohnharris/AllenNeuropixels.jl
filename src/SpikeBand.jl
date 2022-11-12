@@ -72,6 +72,8 @@ function spikematrix(Sp::AbstractDict, bin=1e-4; rectify=4)
     return spikes
 end
 
+
+
 # `count` is a boolean indicating whether to return the number of spikes in each bin, or sum the amplitudes
 function _getspikes(units, times, amplitudes, _times, bin, rectify, count)
     tmax = maximum(_times)
@@ -114,8 +116,8 @@ function getspikes(S, timebounds=nothing; bin=1e-4, rectify=4, structure=nothing
     _getspikes(units, times, amplitudes, _times, bin, rectify, count)
 end
 
-function getspikes(S, stimulus::String; kwargs...)
-    timebounds = first(getstimulustimes(S, stimulus)) # The first flashes stimulus set
+function getspikes(S, stimulus::String; n=1, kwargs...)
+    timebounds = getstimulustimes(S, stimulus)[n]
     getspikes(S, timebounds; kwargs...)
 end
 
@@ -128,9 +130,9 @@ end
 """
 A function to easily grab formatted spike data for a given session, using some sensible default parameters
 """
-function formatspikes(; sessionid=757216464, stimulus="gabors", structure="VISp", n = 1)
+function formatspikes(; sessionid=757216464, stimulus="gabors", structure="VISp", n = 1, bin=1e-4)
     sesh = Session(sessionid)
-    S = getspikes(sesh, stimulus, structure; bin=1e-4, rectify=4, structure=nothing, count=true)
+    S = getspikes(sesh, stimulus, structure; bin, rectify=4, structure, count=true, n)
 end
 
 
