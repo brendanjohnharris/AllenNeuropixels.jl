@@ -373,6 +373,16 @@ function alignlfp(session, X, ::Val{:gabors}; x_position=nothing, y_position=not
     return _X
 end
 
+function alignlfp(session, X, ::Val{:static_gratings})
+    stim = stimulusintervals(session, "static_gratings")
+    stim = stim[stim.start_time .> minimum(dims(X, Ti)), :]
+    stim = stim[stim.stop_time .< maximum(dims(X, Ti)), :]
+    X = rectifytime(X)
+    _X = [X[Ti(g)] for g in stim.interval]
+    _X = [x[1:minimum(size.(_X, Ti)), :] for x in _X]
+    return _X
+end
+
 """
 For flashes alignment, `trail=false` will return only the data from within the flash period. `trail=onset` will return the data from the onset of the flash to the onset of the flash through to the onset of the next flash. `trail=offset` will return the data from the offset of the flash to the onset of the next flash.
 """
@@ -508,9 +518,21 @@ Calculate a feature profile for each channel in each region
 function stimuluspartition(session, probeids, structures, stim; inbrain=200, times=nothing, kwargs...)
     Y = Vector{AbstractVector}([])
     stim == "spontaneous" && return spontaneouspartition(session, probeids, structures; inbrain=200, kwargs...)
+    epochs = getepochs(session, stim)
     for p in eachindex(probeids)
-        X = getlfp(session, probeids[p], structures[p]; inbrain, times) |> rectifytime
-        X = alignlfp(session, X, stim; kwargs...)
+        if isnothing(times)
+            Z = []
+            for e in axes(epochs, 1)
+                times = epochs[e, :].start_time..epochs[e, :].stop_time
+                X = getlfp(session, probeids[p], structures[p]; inbrain, times) |> rectifytime
+                X = alignlfp(session, X, stim; kwargs...)
+                push!(Z, X)
+            end
+            X = vcat(Z...)
+        else
+            X = getlfp(session, probeids[p], structures[p]; inbrain, times) |> rectifytime
+            X = alignlfp(session, X, stim; kwargs...)
+        end
         push!(Y, X)
     end
     return Y
