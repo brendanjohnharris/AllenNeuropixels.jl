@@ -458,7 +458,7 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
         b = B[unitchannels[u]]
         is = interval.(b)
         whole = length(Sp[u])
-        burst = burst = AN.inany.(Sp[u], (is,)) |> sum
+        burst = burst = inany.(Sp[u], (is,)) |> sum
         nonburst = whole - burst
 
         ΔT = (maximum(Sp[u]) - minimum(Sp[u]))
