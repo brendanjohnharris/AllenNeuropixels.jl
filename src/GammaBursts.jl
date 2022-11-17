@@ -456,7 +456,7 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
     stats = DataFrame([[] for _ in cols], cols)
     for u in keys(Sp)
         b = B[unitchannels[u]]
-        is = AN.interval.(b)
+        is = interval.(b)
         whole = length(Sp[u])
         burst = burst = AN.inany.(Sp[u], (is,)) |> sum
         nonburst = whole - burst
