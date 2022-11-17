@@ -447,3 +447,28 @@ function burstdelta(A::BurstVector, B::BurstVector; feed=:forward)
     C, D = pairbursts(A, B; feed)
     Δ = peaktime.(D) .- peaktime.(C)
 end
+
+
+function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
+    unitchannels = AN.getclosestchannels(sessionid, probeid, keys(Sp), channels)
+    # * Count the number of spikes within bursts vs outside bursts. Assume Sp contains spikes only in the duration of the LFP used to calculate bursts.
+    cols = [:unit, :channel, :mean_rate, :burst_rate, :nonburst_rate]
+    stats = DataFrame([[] for _ in cols], cols)
+    for u in keys(Sp)
+        b = B[unitchannels[u]]
+        is = AN.interval.(b)
+        whole = length(Sp[u])
+        burst = burst = AN.inany.(Sp[u], (is,)) |> sum
+        nonburst = whole - burst
+
+        ΔT = (maximum(Sp[u]) - minimum(Sp[u]))
+        Δt = IntervalSets.width.(is) |> sum
+
+        whole = whole/ΔT
+        burst = burst/Δt
+        nonburst = nonburst/(ΔT - Δt)
+
+        push!(stats, [u, unitchannels[u], whole, burst, nonburst])
+    end
+    return stats
+end
