@@ -450,7 +450,7 @@ end
 
 
 function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
-    unitchannels = AN.getclosestchannels(sessionid, probeid, keys(Sp), channels)
+    unitchannels = getclosestchannels(sessionid, probeid, keys(Sp), channels)
     # * Count the number of spikes within bursts vs outside bursts. Assume Sp contains spikes only in the duration of the LFP used to calculate bursts.
     cols = [:unit, :channel, :mean_rate, :burst_rate, :nonburst_rate]
     stats = DataFrame([[] for _ in cols], cols)
