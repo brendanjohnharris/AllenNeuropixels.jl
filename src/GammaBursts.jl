@@ -472,3 +472,25 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
     end
     return stats
 end
+
+"""
+Buszaki's phase-locking index ("Gamma rhythm communication between entorhinal cortex and dentate gyrus neuronal assemblies")
+"""
+function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
+    # * Check the spikes are all in the bounds
+    inter = Interval(extrema(dims(phi, Ti))...)
+    s = s[s.∈[inter]]
+    # * Calculate the phases during each spike, for each frequency
+    phases = exp.(1im.*phi[Ti(Near(s))])
+end
+function phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
+    phases = _phaselockingindex(phi, s)
+    ν = mean(phases, dims=Ti)
+    r = abs.(ν)
+end
+function phaselockingindex(phi::Vector{LogWaveletMatrix}, s::AbstractVector)
+    phases = _phaselockingindex.(phi, (s,))
+    phases = cat(phases, dims=Ti)
+    ν = mean(phases, dims=Ti)
+    r = abs.(ν)
+end
