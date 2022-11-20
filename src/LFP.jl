@@ -617,14 +617,52 @@ function waveletfreqs(t; moth=Morlet(2π), β=1, Q=32)
     return freqs
 end
 
-function wavelettransform(x::LFPVector; moth=Morlet(2π), β=1, Q=32, rectify=true) # β = 1 means linear in log space
-    rectify && (x = rectifytime(x))
+function _wavelettransform(x::AbstractVector; moth, β, Q) # β = 1 means linear in log space
     c = wavelet(moth; β, Q);
-    res = abs.(ContinuousWavelets.cwt(x, c))
+    res = ContinuousWavelets.cwt(x, c)
+end
+
+function _wavelettransform(x::LFPVector; rectify=true, moth=Morlet(2π), β=1, Q=32)
+    rectify && (x = rectifytime(x))
+    res= _wavelettransform(x|>Array; moth=Morlet(2π), β=1, Q=32)
     t = dims(x, Ti)
     freqs = waveletfreqs(t; moth, β, Q)
-    return DimArray(res, (t, Dim{:frequency}(freqs)))
+    return DimArray(res, (t, Dim{:frequency}(freqs)); metadata=DimensionalData.metadata(x))
 end
+
+function _wavelettransform(x::LFPVector, ::Val{:mmap}; window=100000, kwargs...)
+    md = DimensionalData.metadata(x)
+    x = rectifytime(x)
+    𝓍 = _slidingwindow(x, window; tail=:overlap)
+    t = dims(x, Ti)
+    e = step(t)/2
+    freqs = waveletfreqs(dims(𝓍[1], Ti); kwargs...)
+    sz = (length(t), length(freqs))
+    fname = tempname()
+    s = open(fname, "w+"); write.((s,), sz)
+    W = mmap(s, Matrix{ComplexF32}, sz)
+    res = DimArray(W, (t, Dim{:frequency}(freqs)); metadata=(; md..., file=fname))
+    threadlog, threadmax = (0, length(𝓍))
+    @withprogress name="Wavelet transform" begin
+        for _x in 𝓍
+            subres = _wavelettransform(_x; rectify=false, kwargs...)
+            tx = extrema(dims(subres, 1))
+            fx = extrema(dims(subres, 2))
+            tilims = Interval{:closed, :closed}(tx[1]-e, tx[2]+e)
+            flims = Interval{:closed, :closed}(fx[1]-e, fx[2]+e)
+            res[Ti(tilims), Dim{:frequency}(flims)] .= subres
+            if threadmax > 1
+                Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
+            end
+        end
+    end
+    close(s)
+    return res
+end
+
+_wavelettransform(x, s::Symbol; kwargs...) = _wavelettransform(x, Val(s); kwargs...)
+
+wavelettransform(x::LFPVector, args...; kwargs...) = abs.(_wavelettransform(x, args...; kwargs...))
 
 
 function fooof(p::LogWaveletMatrix, freqrange=[1.0, 300.0])
@@ -734,34 +772,8 @@ end
 
 
 
-function mmapwavelettransform(x::LFPVector; window=100000, kwargs...)
-    x = rectifytime(x)
-    𝓍 = _slidingwindow(x, window; tail=:overlap)
-    t = dims(x, Ti)
-    e = step(t)/2
-    freqs = waveletfreqs(dims(𝓍[1], Ti); kwargs...)
-    sz = (length(t), length(freqs))
-    fname = tempname()
-    s = open(fname, "w+"); write.((s,), sz)
-    W = mmap(s, Matrix{Float32}, sz)
-    res = DimArray(W, (t, Dim{:frequency}(freqs)))
-    threadlog, threadmax = (0, length(𝓍))
-    @withprogress name="Wavelet transform" begin
-        for _x in 𝓍
-            subres = wavelettransform(_x; rectify=false, kwargs...)
-            tx = extrema(dims(subres, 1))
-            fx = extrema(dims(subres, 2))
-            tilims = Interval{:closed, :closed}(tx[1]-e, tx[2]+e)
-            flims = Interval{:closed, :closed}(fx[1]-e, fx[2]+e)
-            res[Ti(tilims), Dim{:frequency}(flims)] .= subres
-            if threadmax > 1
-                Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
-            end
-        end
-    end
-    close(s)
-    return res, fname
-end
+mmapwavelettransform(x::LFPVector; kwargs...) = wavelettransform(x, :mmap; kwargs...)
+
 
 function wavelettransform!(res::Dict, LFP::LFPMatrix; window=false, kwargs...)
     threadlog, threadmax = (0, size(LFP, 2)/Threads.nthreads())
