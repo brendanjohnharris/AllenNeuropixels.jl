@@ -624,7 +624,7 @@ end
 
 function _wavelettransform(x::LFPVector; rectify=true, moth=Morlet(2π), β=1, Q=32)
     rectify && (x = rectifytime(x))
-    res= _wavelettransform(x|>Array; moth=Morlet(2π), β=1, Q=32)
+    res = _wavelettransform(x|>Array; moth=Morlet(2π), β=1, Q=32)
     t = dims(x, Ti)
     freqs = waveletfreqs(t; moth, β, Q)
     return DimArray(res, (t, Dim{:frequency}(freqs)); metadata=DimensionalData.metadata(x))
