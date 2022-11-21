@@ -454,7 +454,7 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
     # * Count the number of spikes within bursts vs outside bursts. Assume Sp contains spikes only in the duration of the LFP used to calculate bursts.
     cols = [:unit, :channel, :mean_rate, :burst_rate, :nonburst_rate]
     stats = DataFrame([[] for _ in cols], cols)
-    for u in keys(Sp)
+    for u in keys(unitchannels)
         b = B[unitchannels[u]]
         is = interval.(b)
         whole = length(Sp[u])
