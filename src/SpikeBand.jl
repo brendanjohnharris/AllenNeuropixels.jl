@@ -2,6 +2,7 @@ using SparseArrays
 using ProgressLogging
 using Distances
 using Clustering
+using Random
 
 function downloadspikes(S::AbstractSession)
     _ = S.pyObject.spike_times
@@ -360,3 +361,48 @@ function getunitchannels(session, units)
     channels = Dict(zip(metrics.ecephys_channel_id))
 end
 getunitchannels(sessionid::Int, args...) = getunitchannels(Session(sessionid), args...)
+
+
+
+
+mape(x, y) = sum(1.0.-abs.((x .- y)./x))/length(x)
+sse(x, y) = sum((x .- y).^2)
+msse(x, y) = std((x .- y).^2)
+R²(x, y) = 1.0 - sse(x, y)/sse(x, mean(x))
+absoluteR²(x, y) = R²(x, y) > 0 ? R²(x, y) : R²(x, -y) # If the predictions are negatively correlated to x
+
+function predictionerror(x, y, M::CCA; metric=R²)
+
+    # * Forward prediction, x -> y
+    zx = predict(M, x, :x)
+    zy = zx # ? The assumption that the low-dim shared space maximises correlation between the two latent variables
+    ŷ = (M.yproj)'\zy .+ M.ymean
+
+    # * Reverse prediction, y -> x
+    zy = predict(M, y, :y)
+    zx = zy
+    x̂ = (M.xproj)'\zx .+ M.xmean
+    return metric(x, x̂), metric(y, ŷ)
+end
+
+
+"""
+Calculate the prediction error of variables 1 to variables 2 and vice versa.
+The output contains prediction errors as (x->y, y->x).
+If used with spike matrices probably want to transpose those
+"""
+function predictionerror(x, y; metric=R², model=MultivariateStats.CCA, kwargs...)
+    x = collect(x)
+    y = collect(y)
+    N = size(x, 2)
+    nₜ = N÷5
+    iₜ = fill(false, N)
+    iₜ[randperm(N)[1:nₜ]] .= true
+    xₜ = x[:, iₜ]
+    yₜ = y[:, iₜ]
+    x = x[:, .!iₜ]
+    y = y[:, .!iₜ]
+    N = min(size(x, 1), size(y, 1))
+    Δ = [predictionerror(xₜ, yₜ, fit(model, x, y; outdim=n, kwargs...); metric) for n in 1:N]
+    return first.(Δ), last.(Δ)
+end
