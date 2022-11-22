@@ -151,7 +151,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=1, boundingstretch=0.5, method=:iqr, areacutoff=1)
+function _detectbursts(res::LogWaveletMatrix; thresh=2, curvaturethresh=1, boundingstretch=0.5, method=:iqr, areacutoff=1)
     # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     # @info "Thresholding curvatures"
@@ -230,9 +230,11 @@ Detect bursts from a supplied wavelet spectrum, using thresholding
 `detection` can be `_detectbursts` or `mmap_detectbursts`
 """
 function detectbursts(res::LogWaveletMatrix; pass=nothing, dofit=true, detection=_detectbursts, kwargs...)
+    pass = Interval(log10.(pass)...)
+    isnothing(pass) || (@info "Selecting the $(pass) Hz band"; res=res[Dim{:logfrequency}(pass)])
     B = detection(res; kwargs...)
     basicfilter!(B)
-    isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
+    # isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
 
     if dofit
         @info "Fitting burst profiles"
