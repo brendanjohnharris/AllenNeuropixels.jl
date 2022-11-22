@@ -430,6 +430,9 @@ function pairbursts(A::BurstVector, B::BurstVector; feed=:forward)
         t = findlast(ts)
         if ~isnothing(t)
             if feed == :forward
+                if t+1 > length(ts)
+                    break
+                end
                 ts[t+1] = true
                 t = findlast(ts)
             end
