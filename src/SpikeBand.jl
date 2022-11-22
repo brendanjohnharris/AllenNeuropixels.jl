@@ -403,6 +403,7 @@ function predictionerror(x, y; metric=R², model=MultivariateStats.CCA, kwargs..
     x = x[:, .!iₜ]
     y = y[:, .!iₜ]
     N = min(size(x, 1), size(y, 1))
-    Δ = [predictionerror(xₜ, yₜ, fit(model, x, y; outdim=n, kwargs...); metric) for n in 1:N]
+    Δ = [predictionerror(x, y, fit(model, x, y; outdim=n, kwargs...); metric) for n in 1:N]
+    display(Δ)
     return first.(Δ), last.(Δ)
 end
