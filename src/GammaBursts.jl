@@ -84,7 +84,7 @@ function threshold(res, thresh, method)
     if length(method) == 2 # A tuple of (method, surrogate_res)
         sres = last(method)
         sres = convert(LogWaveletMatrix, sres)
-        res = sres[Ti(At(dims(res)[1].val)), Dim{:logfrequency}(At(dims(res)[2].val))]
+        res = sres[Ti(Interval(extrema(dims(res)[1])...)), Dim{:logfrequency}(Interval(extrema(dims(res)[2])...))]
         method = first(method)
     end
     if method == :percentile
