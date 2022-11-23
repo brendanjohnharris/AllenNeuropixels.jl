@@ -98,11 +98,15 @@ function powerlawfit(_psd::AN.PSDMatrix)
 end
 
 
-function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), kwargs...)
+function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), fs=nothing, N=1000, kwargs...)
     times = collect(dims(LFP, Ti))
-    Δt = times[2] - times[1]
-    all(Δt .≈ diff(times)) || @warn "Violated assumption: all(Δt .≈ diff(times))"
-    fp = x -> welch_pgram(x, div(length(x), 1000), div(div(length(x), 1000), 2); fs=1/Δt, window=nothing)
+    if isnothing(fs)
+        Δt = times[2] - times[1]
+        all(Δt .≈ diff(times)) || @warn "Violated assumption: all(Δt .≈ diff(times))"
+    else
+        Δt = 1/fs
+    end
+    fp = x -> welch_pgram(x, div(length(x), N), div(div(length(x), N), 2); fs=1/Δt, window=nothing)
     P = [fp(Array(x)) for x ∈ eachcol(LFP)]
     𝑓 = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p ∈ P]...)

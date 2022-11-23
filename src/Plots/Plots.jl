@@ -33,6 +33,8 @@ module Plots
 
     GeometryBasics.decompose(x::AN.DimensionalData.AbstractDimArray) = ((dims(x).|>collect)..., x.data)
 
+    # GeometryBasics.decompose(x::AN.DimensionalData.AbstractDimArray, dims...) = (getindex.((dims(x).|>collect), dims)..., x.data[dims...])
+
     dimname(x::AN.DimensionalData.AbstractDimArray, dim) = dims(x, dim)|>name|>string
 
     formataxes(x::AN.DimensionalData.AbstractDimArray{T, 2} where T) = (xlabel=dimname(x, 1), ylabel=dimname(x, 2))
