@@ -35,7 +35,7 @@ end
 # end
 
 
-function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor=:crimson, colormap=nothing, kwargs...)
+function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor=:crimson, colormap=nothing, linealpha =0.3, label="", kwargs...)
     sims = zeros(length(Y))
     ts = Interval(extrema(dims(X, Ti))...)
     Y = deepcopy(Y)
@@ -49,16 +49,17 @@ function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor
     times = collect(values(Y))[idxs]
     times = times[length.(times) .> 0]
     times = Vector{Vector}(times)
-    spy!(ax, times; colormap, marker)
-    lines!(ax, dims(X, Ti)|>collect, collect(length(times).*(X.-minimum(X))./(maximum(X) - minimum(X))); color=linecolor)
+    p = spy!(ax, times; colormap, marker)
+    [translate!(Accum, _p, (0, 0, 200)) for _p in p]
+    lines!(ax, dims(X, Ti)|>collect, collect(length(times).*(X.-minimum(X))./(maximum(X) - minimum(X))); color=(linecolor, linealpha), label)
     ax.xlabel = "Time (s)"
     ax.ylabel = "Unit"
 end
 
-function plotspikebursts!(ax, X::AN.LFPVector, Y::AN.LFPVector, Z::Dict; secondlinecolor=colorant"#EF9901", kwargs...)
-    plotspikebursts!(ax, X, Z; kwargs...)
+function plotspikebursts!(ax, X::AN.LFPVector, Y::AN.LFPVector, Z::Dict; secondlinecolor=:cornflowerblue, secondlabel="", linealpha=0.3, kwargs...)
+    plotspikebursts!(ax, X, Z; linealpha, kwargs...)
     Y = (Y .- mean(Y))./std(Y)
-    lines!(ax, dims(Y, Ti)|>collect, 0.1.*collect(length(Z).*(Y.-minimum(Y))./(maximum(Y) - minimum(Y))); color=secondlinecolor)
+    lines!(ax, dims(Y, Ti)|>collect, 0.7.*collect(length(Z).*(Y.-minimum(Y))./(maximum(Y) - minimum(Y))); color=(secondlinecolor, linealpha), label=secondlabel)
 end
 
 
