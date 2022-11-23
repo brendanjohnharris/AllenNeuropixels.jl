@@ -5,7 +5,6 @@ using LinearAlgebra
 using ProgressLogging
 using Interpolations
 using HypothesisTests
-# using FiniteDifferences
 
 abstract type AbstractBurst end
 BurstVector = AbstractVector{<:AbstractBurst}
@@ -45,12 +44,14 @@ fiterror(B::Burst) = std(B.fit.resid./B.mask[:])
 interval(B::Burst) = peaktime(B)±(0.5*duration(B))
 inany(x, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
 
-function basicfilter!(B::BurstVector; fmin=1, tmin=0.008, tmax=1, pass=[0, Inf])
-    fmin = log10(fmin)
+function basicfilter!(B::BurstVector; pass=[1, 100], fmin=0.1, tmin=2, tmax=5) # fmin in octaves
+    # fmin = log10(fmin)
     # pass = Interval(pass...)
     # passes(x) = all([y in pass for y in x])
-    filter!(b->size(mask(b), Ti) > tmin/dt(b), B)
-    filter!(b->size(mask(b), Ti) < tmax/dt(b), B)
+    # filter!(b->size(mask(b), Ti) > tmin/dt(b), B)
+    # filter!(b->size(mask(b), Ti) < tmax/dt(b), B)
+    filter!(b->size(mask(b), Ti) > tmin/maxfreq(b)/dt(b), B)
+    filter!(b->size(mask(b), Ti) < tmax/pass[1]/dt(b), B)
     filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
     # filter!(b->passes(extrema(dims(mask(b), Dim{:frequency}))), B)
 end
@@ -80,6 +81,12 @@ end
 #     end
 # end
 function threshold(res, thresh, method)
+    if length(method) == 2 # A tuple of (method, surrogate_res)
+        sres = last(method)
+        sres = convert(LogWaveletMatrix, sres)
+        res = sres[Ti(At(dims(res)[1].val)), Dim{:logfrequency}(At(dims(res)[2].val))]
+        method = first(method)
+    end
     if method == :percentile
         cutoff = mapslices(x->percentile(x, thresh), res, dims=Ti)
     elseif method == :std
@@ -89,8 +96,10 @@ function threshold(res, thresh, method)
     end
 end
 
-function surrogatethreshold()
-end
+# function surrogatewavelettransform(x::LFPVector; method=AP(samplingrate(x)), transform=AN.mmapwavelettransform, kwargs...)
+#     y = surrogate(x, method)
+#     sres = transform(y; kwargs...)
+# end
 
 # grad(x::Real, y::Real) = x - y
 # grad(x::AbstractVector, h) = grad.((@view x[3:end]), (@view x[1:end-2]))./(2*h)
@@ -151,7 +160,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh=2, curvaturethresh=1, boundingstretch=0.5, method=:iqr, areacutoff=1)
+function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=3, boundingstretch=0.5, method=:iqr, areacutoff=1)
     # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     # @info "Thresholding curvatures"
@@ -230,8 +239,7 @@ Detect bursts from a supplied wavelet spectrum, using thresholding
 `detection` can be `_detectbursts` or `mmap_detectbursts`
 """
 function detectbursts(res::LogWaveletMatrix; pass=nothing, dofit=true, detection=_detectbursts, kwargs...)
-    pass = Interval(log10.(pass)...)
-    isnothing(pass) || (@info "Selecting the $(pass) Hz band"; res=res[Dim{:logfrequency}(pass)])
+    isnothing(pass) || (@info "Selecting the $(pass) Hz band"; res=res[Dim{:logfrequency}(Interval(log10.(pass)...))])
     B = detection(res; kwargs...)
     basicfilter!(B)
     # isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
