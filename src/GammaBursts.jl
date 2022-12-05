@@ -41,8 +41,27 @@ dt(B::Burst) = step(dims(mask(B), Ti))
 maskduration(B::Burst) = dims(mask(B), Ti) |> extrema |> collect |> diff |> first
 maskspectralwidth(B::Burst) = dims(mask(B), Dim{:logfrequency}) |> extrema |> collect |> diff |> first
 fiterror(B::Burst) = std(B.fit.resid./B.mask[:])
-interval(B::Burst) = peaktime(B)±(0.5*duration(B))
+interval(B::Burst, σ=0.5) = peaktime(B)±(σ*duration(B))
 inany(x, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
+
+getchannel(B::Burst) = isempty(mask(B).refdims) ? nothing : refdims(mask(B), Dim{:channel}) |> first
+flds = [:stimulus, :structure, :sessionid, :probeid]
+for f in flds
+    fs = "get"*string(f) |> Symbol
+    @eval ($fs)(B::Burst) = haskey(B.mask.metadata, Symbol($f)) ? B.mask.metadata[Symbol($f)] : nothing
+end
+# stimulus(B::Burst) = hasfield(B.mask.metadata, :stimulus) ? B.mask.metadata[:stimulus] : nothing
+# structure(B::Burst) = hasfield(B.mask.metadata, :structure) ? B.mask.metadata[:structure] : nothing
+# sessionid(B::Burst) = hasfield(B.mask.metadata, :sessionid) ? B.mask.metadata[:sessionid] : nothing
+# channel(B::Burst) = hasfield(B.mask.metadata, :channel) ? B.mask.metadata[:channel] : nothing
+# probeid(B::Burst) = hasfield(B.mask.metadata, :probeid) ? B.mask.metadata[:probeid] : nothing
+
+function burstlfp(B::Burst, LFP::LFPMatrix, σ=1.0)
+    channel = getchannel(B)
+    isnothing(channel) && @error "Burst has no associated LFP"
+    ts = interval(B, σ)
+    return LFP[Ti(ts), Dim{:channel}(At(channel))]
+end
 
 function basicfilter!(B::BurstVector; pass=[1, 100], fmin=0.1, tmin=2, tmax=5) # fmin in octaves
     # fmin = log10(fmin)
@@ -62,6 +81,7 @@ function bandfilter!(B::BurstVector; pass=[50, 60])
 end
 
 bandfilter!(; kwargs...) = x->bandfilter!(x; kwargs...)
+bandfilter(B; kwargs...) = (Bs = deepcopy(B); bandfilter!(Bs; kwargs...); Bs)
 
 function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[50, 60]) # fmin in Hz, tmin in s
     fmin = log10(fmin)

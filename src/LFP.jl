@@ -42,15 +42,15 @@ WaveletMatrix = dimmatrix(Ti, :frequency) # Type for DimArrays containing wavele
 LogWaveletMatrix = dimmatrix(Ti, :logfrequency) # Type for DimArrays containing wavelet transform info
 export WaveletMatrix, LogWaveletMatrix
 function Base.convert(::Type{LogWaveletMatrix}, x::WaveletMatrix)
-    x = DimArray(x, (dims(x, Ti), Dim{:logfrequency}(log10.(dims(x, :frequency)))); metadata=metadata(x))
+    x = DimArray(x, (dims(x, Ti), Dim{:logfrequency}(log10.(dims(x, :frequency)))); metadata=metadata(x), refdims=refdims(x))
     x = x[:, .!isinf.(dims(x, :logfrequency))]
 end
 function Base.convert(::Type{LogPSDVector}, x::PSDVector)
-    x = DimArray(x, (Dim{:logfrequency}(log10.(dims(x, :frequency))),); metadata=metadata(x))
+    x = DimArray(x, (Dim{:logfrequency}(log10.(dims(x, :frequency))),); metadata=metadata(x), refdims=refdims(x))
     x = x[.!isinf.(dims(x, :logfrequency))]
 end
 function Base.convert(::Type{WaveletMatrix}, x::LogWaveletMatrix)
-    x = DimArray(x, (dims(x, Ti), Dim{:frequency}(exp10.(dims(x, :logfrequency)))); metadata=metadata(x))
+    x = DimArray(x, (dims(x, Ti), Dim{:frequency}(exp10.(dims(x, :logfrequency)))); metadata=metadata(x), refdims=refdims(x))
 end
 waveletmatrix(res::LogWaveletMatrix) = convert(WaveletMatrix, res)
 logwaveletmatrix(res::WaveletMatrix) = convert(LogWaveletMatrix, res)
@@ -627,11 +627,12 @@ function _wavelettransform(x::LFPVector; rectify=true, moth=Morlet(2π), β=1, Q
     res = _wavelettransform(x|>Array; moth=Morlet(2π), β=1, Q=32)
     t = dims(x, Ti)
     freqs = waveletfreqs(t; moth, β, Q)
-    return DimArray(res, (t, Dim{:frequency}(freqs)); metadata=DimensionalData.metadata(x))
+    return DimArray(res, (t, Dim{:frequency}(freqs)); metadata=DimensionalData.metadata(x), refdims=refdims(x))
 end
 
 function _wavelettransform(x::LFPVector, ::Val{:mmap}; window=50000, kwargs...)
     md = DimensionalData.metadata(x)
+    rd = DimensionalData.refdims(x)
     x = rectifytime(x)
     𝓍 = _slidingwindow(x, window; tail=:overlap)
     t = dims(x, Ti)
@@ -641,7 +642,7 @@ function _wavelettransform(x::LFPVector, ::Val{:mmap}; window=50000, kwargs...)
     fname = tempname()
     s = open(fname, "w+"); write.((s,), sz)
     W = mmap(s, Matrix{ComplexF32}, sz)
-    res = DimArray(W, (t, Dim{:frequency}(freqs)); metadata=(; md..., file=fname))
+    res = DimArray(W, (t, Dim{:frequency}(freqs)); metadata=(; md..., file=fname), refdims=rd)
     threadlog, threadmax = (0, length(𝓍))
     @withprogress name="Wavelet transform" begin
         for _x in 𝓍
