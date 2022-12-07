@@ -291,6 +291,11 @@ function getchanneldepths(session, probeid, X::LFPMatrix)
     channels = dims(X, Dim{:channel})|>collect
     getchanneldepths(session, probeid, channels)
 end
+function getchanneldepths(X::LFPMatrix)
+    @assert all(haskey.((metadata(X),), (:sessionid, :probeid)))
+    S = Session(metadata(X)[:sessionid])
+    getchanneldepths(S, metadata(X)[:probeid], X)
+end
 
 function getunitdepths(session, probeid, units)
     metrics = getunitanalysismetrics(session)
