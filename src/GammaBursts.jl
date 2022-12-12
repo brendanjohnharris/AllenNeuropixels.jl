@@ -82,6 +82,7 @@ end
 
 bandfilter!(; kwargs...) = x->bandfilter!(x; kwargs...)
 bandfilter(B; kwargs...) = (Bs = deepcopy(B); bandfilter!(Bs; kwargs...); Bs)
+bandfilter(; kwargs...) = x->bandfilter(x; kwargs...)
 
 function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[50, 60]) # fmin in Hz, tmin in s
     fmin = log10(fmin)
@@ -291,10 +292,10 @@ function fit!(B::Burst)
     mask = B.mask
 
     # The fitting takes a while. Let's downsample a little bit if we can
-    while size(mask, 1) > 100
+    while size(mask, 1) > 50
         mask = mask[1:2:end, :]
     end
-    while size(mask, 2) > 100
+    while size(mask, 2) > 50
         mask = mask[:, 1:2:end]
     end
     B.fit = fitdiagonalgaussian(mask)
@@ -446,39 +447,102 @@ end
 
 
 """
-Pair each burst in A with a burst in B, i.e. where the burst in A is closest in time to the burst in B. Not all bursts will be paired.
+Pair each burst in A with a burst in B, i.e. where the burst in A is closest in time to the burst in B. Not all bursts will be paired (?)
+First, calculate a distance matrix between all bursts.
+Then, select bursts pairs with a minimum distance from the distance matrix
 """
-function pairbursts(A::BurstVector, B::BurstVector; feed=:forward)
-    B = sort(deepcopy(B), by=peaktime)
-    A = sort(deepcopy(A), by=peaktime)
-    C = []
-    D = []
+# function pairbursts(A::BurstVector, B::BurstVector; feed=:forward)
+#     B = sort(deepcopy(B), by=peaktime)
+#     A = sort(deepcopy(A), by=peaktime)
+#     C = []
+#     D = []
+#     ta = peaktime.(A)
+#     tb = peaktime.(B)
+#     for (i, a) in enumerate(A)
+#         ts = ta[i] .> tb
+#         t = findlast(ts)
+#         if ~isnothing(t)
+#             if feed == :forward
+#                 if t+1 > length(ts)
+#                     break
+#                 end
+#                 ts[t+1] = true
+#                 t = findlast(ts)
+#             end
+#             push!(C, a)
+#             push!(D, B[t])
+#             deleteat!(B, ts) # Remove all bursts before `a``
+#             deleteat!(tb, ts)
+#         end
+#     end
+#     return C, D
+# end
+
+"""
+May have duplicate bursts...
+"""
+# function pairdistances(Δ::Matrix; side=:both)
+#     cols = []
+#     for i in axes(Δ, 1)
+#         _, d = findmin(abs.(Δ[i, :])) # Find the burst in the secondary region with the smallest distance to the primary burst
+#         push!(cols, d)
+#     end
+#     Δ = Δ[:, cols]
+#     if side == :both
+#         _cols = []
+#         _rows = []
+#         for c in unique(cols)
+#             _, I = findmin(abs.(Δ[:, cols .== c]))
+#             i, j = I |> Tuple
+#             push!(_cols, j)
+#             push!(_rows, i)
+#         end
+#         Δ = Δ[_rows, _cols]
+#         cols = (_rows, cols)
+#     end
+#     return Δ, cols
+# end
+
+"""
+Detect paired bursts that are closer than thresh
+"""
+# function pairdistances(Δ, thresh=0.25)
+#     I = findall(abs.(Δ) .< thresh)
+#     I = I .|> Tuple
+#     i = unique(first.(I))
+#     j = unique(last.(I))
+#     return Δ[i, j], (i, j)
+# end
+# function pairdistances(Δ)
+#     Δ = deepcopy(Δ)
+#     # * Step along rows, finding the closest pairs of bursts
+#     _Δ = fill(NaN, (size(Δ, 1), size(Δ, 1)))
+#     while any(isnan.(_Δ))
+#         r, c = Δ .|> abs |> findmin |> last |> Tuple
+#         _Δ[:, r] .= Δ[:, c]
+#         Δ[:, c] .= Inf
+#         Δ[r, :] .= Inf
+#     end
+#     return _Δ
+# end
+function pairdistances(Δ)
+    I = [abs.(x) |> findmin |> last for x in eachrow(Δ)]
+    return Δ[:, I] # The bursts in reg. 1, and the distance to their closes bursts in reg. 2
+end
+
+function burstdistances(A::BurstVector, B::BurstVector)
     ta = peaktime.(A)
     tb = peaktime.(B)
-    for (i, a) in enumerate(A)
-        ts = ta[i] .> tb
-        t = findlast(ts)
-        if ~isnothing(t)
-            if feed == :forward
-                if t+1 > length(ts)
-                    break
-                end
-                ts[t+1] = true
-                t = findlast(ts)
-            end
-            push!(C, a)
-            push!(D, B[t])
-            deleteat!(B, ts) # Remove all bursts before `a``
-            deleteat!(tb, ts)
-        end
-    end
-    return C, D
+    return [b - a for a in ta, b in tb]
 end
 
 
 function burstdelta(A::BurstVector, B::BurstVector; feed=:forward)
-    C, D = pairbursts(A, B; feed)
-    Δ = peaktime.(D) .- peaktime.(C)
+    # C, D = pairbursts(A, B; feed)
+    # Δ = peaktime.(D) .- peaktime.(C)
+    Δ = burstdistances(A, B)
+    I = [x |> findmin |> last for x in abs.(Δ) |> eachrow]
+    return [x[i] for (x, i) in zip(eachrow(Δ), I)]
 end
 
 
@@ -527,3 +591,35 @@ function phaselockingindex(phi::Vector{LogWaveletMatrix}, s::AbstractVector)
     ν = mean(phases, dims=Ti)
     r = abs.(ν)
 end
+
+
+
+
+
+
+
+# * We want to detect durations where the theta bursts occur all across the channels
+# * To do this, we look at each time point how many channels have an ongoing theta burst. If this is greater than some value, we count this time as a part of the global burst
+function globalbursts(B::Dict; thresh=0.5)
+    ts = [extrema.(interval.(b, 1)) for b in values(B)]
+    ts = vcat(collect.(vcat(collect.([vcat(e...) for e in ts])...))...)
+    # int = Interval(extrema(ts)...)
+    ts = minimum(ts):0.005:maximum(ts) # Down sample a little so that we don't take forever
+    gbi = globalburstindex(ts, B)
+    gbs = (gbi .> thresh) |> ImageMorphology.label_components |> ImageMorphology.component_indices
+    gbs = gbs[2:end] .|> extrema
+    gbs = [Interval(ts[g[1]], ts[g[2]]) for g in gbs]
+end
+
+function globalburstindex(t::Number, ints::AbstractVector)
+    counts = [inany(t, i) for i in ints]
+    return sum(counts)/length(ints)
+end
+
+function globaburstindex(ts, B::AbstractVector)
+    ints = [interval.(b, 1) for b in B]
+    return globalburstindex.(ts, [ints])
+end
+
+
+globalburstindex(ts, B::Dict) = globaburstindex(ts, collect(values(B)))
