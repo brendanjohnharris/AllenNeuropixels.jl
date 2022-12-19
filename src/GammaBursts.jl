@@ -42,6 +42,8 @@ maskduration(B::Burst) = dims(mask(B), Ti) |> extrema |> collect |> diff |> firs
 maskspectralwidth(B::Burst) = dims(mask(B), Dim{:logfrequency}) |> extrema |> collect |> diff |> first
 fiterror(B::Burst) = std(B.fit.resid./B.mask[:])
 interval(B::Burst, σ=0.5) = peaktime(B)±(σ*duration(B))
+timeinterval = interval
+frequencyinterval(B::Burst, σ=0.5) = logpeakfreq(B)±(σ*logspectralwidth(B))
 inany(x, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
 
 getchannel(B::Burst) = isempty(mask(B).refdims) ? nothing : refdims(mask(B), Dim{:channel}) |> first
@@ -292,10 +294,10 @@ function fit!(B::Burst)
     mask = B.mask
 
     # The fitting takes a while. Let's downsample a little bit if we can
-    while size(mask, 1) > 50
+    while size(mask, 1) > 100
         mask = mask[1:2:end, :]
     end
-    while size(mask, 2) > 50
+    while size(mask, 2) > 100
         mask = mask[:, 1:2:end]
     end
     B.fit = fitdiagonalgaussian(mask)
@@ -623,3 +625,68 @@ end
 
 
 globalburstindex(ts, B::Dict) = globaburstindex(ts, collect(values(B)))
+
+"""
+Returns a function that evaluates the Gaussian fits of a collection of bursts at any time and log-frequency value
+"""
+function aggregatefit(ℬ::BurstVector; span=3)
+    ts = timeinterval.(ℬ, span) # Relevant bursts are within 2 SD's of the burst centre
+    fs = frequencyinterval.(ℬ, span)
+    function G(t, f)
+        idxs = t .∈ ts
+        _ℬ = ℬ[idxs]
+        isempty(_ℬ) && return 0.0
+        _fs = fs[idxs]
+        _fs = [_fs...]
+        _ℬ = _ℬ[f .∈ _fs] # Relevant bursts for this time and frequency
+        isempty(_ℬ) && return 0.0
+        return sum([gaussian2((t, f), b.fit.param) for b in _ℬ]) # Sum of bursts at this value
+    end
+end
+
+
+function gaussianmask(B...; ts=nothing, fs=nothing, span=3)
+    ℬ = B[1]
+    if isnothing(ts)
+        Δt = dt(ℬ[1])
+        ts = vcat(collect.(extrema.(timeinterval.(ℬ, span)))...) |> extrema
+        ts = ts[1]:Δt:ts[2]
+    end
+    if isnothing(fs)
+        Δf = df(ℬ[1])
+        fs = vcat(collect.(extrema.(frequencyinterval.(ℬ, span)))...) |> extrema
+        fs = fs[1]:Δf:fs[2]
+    end
+    masks = []
+    for ℬ in B
+        mask = DimArray(zeros(length(ts), length(fs)), (Ti(ts), Dim{:logfrequency}(fs)))
+        for b in ℬ
+            tt = dims(mask, Ti)
+            tt = tt[tt .∈ (timeinterval(b, span),)]
+            ff = dims(mask, Dim{:logfrequency})
+            ff = ff[ff .∈ (frequencyinterval(b, span),)]
+            g = (x, y) -> gaussian2((x, y), b.fit.param)
+            for t in tt
+                for f in ff
+                    mask[Ti(At(t)), Dim{:logfrequency}(At(f))] = g(t, f)
+                end
+            end
+        end
+        push!(masks, mask)
+    end
+    return masks
+end
+
+
+function burstoverlap(res1::LogWaveletMatrix, res2::LogWaveletMatrix; normdims=:frequency, globalnorm=false)
+    normall(x) = (x.-minimum(x))./(maximum(x)-minimum(x))
+    normfrequency(x) = (x.- minimum(x, dims=Ti))./(maximum(x; dims=Ti)-minimum(x; dims=Ti))
+    normdims == :all && (res1, res2 = normall.([res1, res2]))
+    normdims == :frequency && (res1, res2 = normfrequency.([res1, res2]))
+    normdims == :frequencymax && (res1, res2 = maximum.([res1, res2], dims=Dim{:logfrequency}))
+
+    A = globalnorm ? sum(res1, dims=Ti).*sum(res2, dims=Ti) : 1.0
+    (A.*sum(res1.*res2, dims=Ti))[1, :]
+end
+
+burstoverlap(B1::BurstVector, B2::BurstVector) = burstoverlap(gaussianmask(B1, B2)...)
