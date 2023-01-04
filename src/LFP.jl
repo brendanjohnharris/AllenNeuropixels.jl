@@ -181,6 +181,8 @@ function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(
     end
 
     channelidxs = getlfpchannels(session, probeid)
+    display(channels)
+    display(channelidxs)
     channelidxs = indexin(channels, channelidxs)
     channelidxs = filter(!isnothing, channelidxs)
     @assert length(channels) == length(channelidxs)
