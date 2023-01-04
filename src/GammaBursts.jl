@@ -213,7 +213,8 @@ function mmap_detectbursts(res::LogWaveletMatrix; window=50000, kwargs...)
     B = Vector{Burst}()
     threadlog, threadmax = (0, length(ti))
     @withprogress name="Burst detection" begin
-        for ts in ti
+        for (i, ts) in enumerate(ti)
+            @info "Calculating epoch $i/$(length(ti))"
             subres = res[Ti(ts)]
             append!(B, _detectbursts(subres; kwargs...))
             if threadmax > 1
