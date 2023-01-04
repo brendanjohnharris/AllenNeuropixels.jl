@@ -65,17 +65,18 @@ function burstlfp(B::Burst, LFP::LFPMatrix, σ=1.0)
     return LFP[Ti(ts), Dim{:channel}(At(channel))]
 end
 
-function basicfilter!(B::BurstVector; pass=[1, 100], fmin=0.1, tmin=2, tmax=5) # fmin in octaves
+function basicfilter!(B::BurstVector; pass=nothing, fmin=0.1, tmin=2, tmax=5) # fmin in octaves
     # fmin = log10(fmin)
     # pass = Interval(pass...)
     # passes(x) = all([y in pass for y in x])
     # filter!(b->size(mask(b), Ti) > tmin/dt(b), B)
     # filter!(b->size(mask(b), Ti) < tmax/dt(b), B)
     filter!(b->size(mask(b), Ti) > tmin/maxfreq(b)/dt(b), B)
-    filter!(b->size(mask(b), Ti) < tmax/pass[1]/dt(b), B)
+    isnothing(pass) || (filter!(b->size(mask(b), Ti) < tmax/pass[1]/dt(b), B))
     filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
     # filter!(b->passes(extrema(dims(mask(b), Dim{:frequency}))), B)
 end
+basicfilter!(; kwargs...) = x->basicfilter!(x; kwargs...)
 
 function bandfilter!(B::BurstVector; pass=[50, 60])
     pass = Interval(pass...)
@@ -183,7 +184,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=3, boundingstretch=0.5, method=:iqr, areacutoff=1)
+function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=3, boundingstretch=0.5, method=:iqr, areacutoff=1, dofit=false, filter=nothing)
     # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     # @info "Thresholding curvatures"
@@ -205,6 +206,12 @@ function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=3, bound
     bb = [widen(b, boundingstretch; upperbound=size(res)) for b in bb]
     masks = [res[b[1][1]:b[2][1], b[1][2]:b[2][2]] for b in bb]
     B = Burst.(masks, ((method, thresh, curvaturethresh),), peaks)[idxs]
+    isnothing(filter) || filter(B; pass)
+    if dofit
+        @info "Fitting bursts"
+        fit!(B)
+    end
+    return B
 end
 
 function mmap_detectbursts(res::LogWaveletMatrix; window=50000, kwargs...)
@@ -264,13 +271,10 @@ Detect bursts from a supplied wavelet spectrum, using thresholding
 """
 function detectbursts(res::LogWaveletMatrix; pass=nothing, dofit=true, detection=_detectbursts, kwargs...)
     isnothing(pass) || (@info "Selecting the $(pass) Hz band"; res=res[Dim{:logfrequency}(Interval(log10.(pass)...))])
-    B = detection(res; kwargs...)
-    basicfilter!(B)
+    B = detection(res; filter=basicfilter!(; pass), dofit, kwargs...)
     # isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
 
     if dofit
-        @info "Fitting burst profiles"
-        fit!(B)
         sort!(B, by=peaktime)
     end
     return B
