@@ -230,10 +230,11 @@ function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector
     if structures isa String
         structures = [structures]
     end
+    display(getchannels(session, probeid))
+    display("---")
+    display(structures)
     channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(∈(structures)), skipmissing=true)
-    display(channels)
     channels = channels.id ∩ getlfpchannels(session, probeid)
-    display("asd")
     display(channels)
     getlfp(session, probeid; channels, kwargs...)
 end
