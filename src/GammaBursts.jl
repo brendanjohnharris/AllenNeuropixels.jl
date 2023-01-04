@@ -184,7 +184,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=3, boundingstretch=0.5, method=:iqr, areacutoff=1, dofit=false, filter=nothing)
+function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=3, boundingstretch=0.5, method=:iqr, areacutoff=1, dofit=false, filter=nothing)
     # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
     # @info "Thresholding curvatures"
@@ -299,10 +299,10 @@ function fit!(B::Burst)
     mask = B.mask
 
     # The fitting takes a while. Let's downsample a little bit if we can
-    while size(mask, 1) > 100
+    while size(mask, 1) > 80
         mask = mask[1:2:end, :]
     end
-    while size(mask, 2) > 100
+    while size(mask, 2) > 80
         mask = mask[:, 1:2:end]
     end
     B.fit = fitdiagonalgaussian(mask)
