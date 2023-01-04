@@ -181,8 +181,6 @@ function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(
     end
 
     channelidxs = getlfpchannels(session, probeid)
-    display(channels)
-    display(channelidxs)
     channelidxs = indexin(channels, channelidxs)
     channelidxs = filter(!isnothing, channelidxs)
     @assert length(channels) == length(channelidxs)
@@ -233,7 +231,10 @@ function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector
         structures = [structures]
     end
     channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(∈(structures)), skipmissing=true)
+    display(channels)
     channels = channels.id ∩ getlfpchannels(session, probeid)
+    display("asd")
+    display(channels)
     getlfp(session, probeid; channels, kwargs...)
 end
 
