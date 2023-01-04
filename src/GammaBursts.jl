@@ -206,7 +206,7 @@ function _detectbursts(res::LogWaveletMatrix; thresh=3, curvaturethresh=3, bound
     bb = [widen(b, boundingstretch; upperbound=size(res)) for b in bb]
     masks = [res[b[1][1]:b[2][1], b[1][2]:b[2][2]] for b in bb]
     B = Burst.(masks, ((method, thresh, curvaturethresh),), peaks)[idxs]
-    isnothing(filter) || filter(B; pass)
+    isnothing(filter) || filter(B)
     if dofit
         @info "Fitting bursts"
         fit!(B)
