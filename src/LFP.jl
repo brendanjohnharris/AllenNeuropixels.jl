@@ -230,12 +230,9 @@ function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector
     if structures isa String
         structures = [structures]
     end
-    display(getchannels(session, probeid))
-    display("---")
-    display(structures)
     channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(∈(structures)), skipmissing=true)
     channels = channels.id ∩ getlfpchannels(session, probeid)
-    display(channels)
+    isempty(channels) && @error "No matching channels found for structure(s) $structures. Perhaps you have entered the wrong probe id?"
     getlfp(session, probeid; channels, kwargs...)
 end
 
