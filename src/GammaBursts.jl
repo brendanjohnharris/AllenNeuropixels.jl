@@ -695,3 +695,23 @@ function burstoverlap(res1::LogWaveletMatrix, res2::LogWaveletMatrix; normdims=:
 end
 
 burstoverlap(B1::BurstVector, B2::BurstVector) = burstoverlap(gaussianmask(B1, B2)...)
+
+"""
+Shuffle times of a burst vector
+"""
+function randomisebursts(BS::BurstVector)
+    ℬ = deepcopy(BS)
+    it = extrema(peaktime.(ℬ))
+    ts = (rand(length(ℬ)).*(it[2]-it[1])).+it[1] # Random burst times
+    # * Adjust the centre parameter
+    [B.fit.param[2] = ts[i] for (i, B) in enumerate(ℬ)]
+    # * Subtract the centre from the mask dimensions
+    for (i, B) in enumerate(ℬ)
+        _t = B.mask.dims[1].val.data .- ts[i]
+        B.mask = DimArray(B.mask.data, (Ti(_t), B.mask.dims[2]))
+        B.peak = (B.peak[1] - ts[i], B.peak[2], B.peak[3])
+    end
+    # [B.mask.dims[1].val.data = B.mask.dims[1].val.data .- ts[i] for (i, B) in enumerate(ℬ)]
+    # [B.peak[1] -= ts[i] for (i, B) in enumerate(ℬ)]
+    return ℬ
+end
