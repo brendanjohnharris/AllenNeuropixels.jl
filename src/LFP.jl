@@ -245,12 +245,12 @@ function getlfp(session, probeids::Vector{Int}, args...; kwargs...)
     LFP = [getlfp(session, probeid, args...; kwargs...) for probeid ∈ probeids]
 end
 
-function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp", n=1, kwargs...)
+function formatlfp(; sessionid=757216464, probeid=769322749, stimulus="gabors", structure="VISp", epoch=1, kwargs...)
     session = Session(sessionid)
     if isnothing(structure)
         structure = getchannels(session, probeid).id |> getstructureacronyms |> unique |> skipmissing |> collect |> Vector{String}
     end
-    epoch = getepochs(session, stimulus)[n, :]
+    epoch = getepochs(session, stimulus)[epoch, :]
     times = epoch.start_time..epoch.stop_time
     X = getlfp(session, probeid, structure; inbrain=200, times) |> rectifytime
     X = sortbydepth(session, probeid, X)

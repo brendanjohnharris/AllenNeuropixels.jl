@@ -44,7 +44,9 @@ fiterror(B::Burst) = std(B.fit.resid./B.mask[:])
 interval(B::Burst, σ=0.5) = peaktime(B)±(σ*duration(B))
 timeinterval = interval
 frequencyinterval(B::Burst, σ=0.5) = logpeakfreq(B)±(σ*logspectralwidth(B))
-inany(x, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
+inany(x::Number, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
+inany(x::Vector, V::Vector{<:AbstractInterval}) = inany.(x, (V,))
+inany(x::Tuple, V::Vector{<:AbstractInterval}) = inany.(x, (V,))
 
 getchannel(B::Burst) = isempty(mask(B).refdims) ? nothing : refdims(mask(B), Dim{:channel}) |> first
 flds = [:stimulus, :structure, :sessionid, :probeid]
