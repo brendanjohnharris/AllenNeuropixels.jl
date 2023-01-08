@@ -131,9 +131,9 @@ end
 """
 A function to easily grab formatted spike data for a given session, using some sensible default parameters
 """
-function formatspikes(; sessionid=757216464, stimulus="gabors", structure="VISp", n = 1, bin=1e-4, kwargs...)
+function formatspikes(; sessionid=757216464, stimulus="gabors", structure="VISp", epoch = 1, bin=1e-4, kwargs...)
     sesh = Session(sessionid)
-    S = getspikes(sesh, stimulus, structure; bin, rectify=4, structure, count=true, n)
+    S = getspikes(sesh, stimulus, structure; bin, rectify=4, structure, count=true, epoch)
 end
 
 
