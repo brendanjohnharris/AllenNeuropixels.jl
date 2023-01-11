@@ -98,7 +98,7 @@ function powerlawfit(_psd::AN.PSDMatrix)
 end
 
 
-function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), fs=nothing, N=1000, kwargs...)
+function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), fs=nothing, N=1000, slopecolor=:crimson, kwargs...)
     times = collect(dims(LFP, Ti))
     if isnothing(fs)
         Δt = times[2] - times[1]
@@ -116,14 +116,14 @@ function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([
     if !isnothing(slope)
         _psd = psd[Dim{:frequency}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
-        lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=:red, linewidth=5)
+        lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=slopecolor, linewidth=5)
         text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
     end
     return fig
 end
 
 
-function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), kwargs...)
+function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), slopecolor=:crimson, kwargs...)
     # Calculate the power spectrum of each column of the LFP array
     times = collect(dims(LFP, Ti))
     Δt = times[2] - times[1]
@@ -139,17 +139,17 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, 
     psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
     psd = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
     depths = AN.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
-    fig = traces(𝑓, Array(psd); tracez=depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
+    fig = traces(𝑓, Array(psd); tracez=-depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
     if !isnothing(slope)
         _psd = psd[Dim{:frequency}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
-        lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=:red, linewidth=5)
+        lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=slopecolor, linewidth=5)
         text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
     end
     return fig
 end
 
-function plotLFPspectra(session, probeids::Vector, LFP::Vector; kwargs...)
+function plotLFPspectra(session, probeids::Vector, LFP::Vector; slopecolor=nothing, kwargs...)
     @assert length(probeids) == length(LFP)
     times = collect(dims(LFP[1], Ti))
     Δt = times[2] - times[1]
@@ -170,7 +170,7 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector; kwargs...)
     # idxs = .!isnan.(depths)
     # AC = AC[:, idxs]
     # depths = depths[idxs]
-    traces(timelags, AC; tracez=depths, xlabel="𝜏 (s)", ylabel="𝜌(𝜏)", title="Autocorrelation of LFP timeseries", clabel="Depth", smooth=10, domean=false, colormap=cgrad([:cornflowerblue, :black], alpha=0.1), kwargs...)
+    traces(timelags, AC; tracez=-depths, xlabel="𝜏 (s)", ylabel="𝜌(𝜏)", title="Autocorrelation of LFP timeseries", clabel="Depth", smooth=10, domean=false, colormap=cgrad([:cornflowerblue, :black], alpha=0.1), kwargs...)
 end
 export plotLFPspectra
 
@@ -275,19 +275,19 @@ function plotfit!(ax, b::AN.Burst; kwargs...)
 end
 plotfit(B::AN.Burst; kwargs...) = (ax = Axis3(Figure()[1, 1]); plotfit!(ax, B; kwargs...); current_figure())
 
-function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, size(res, 1)), downsample=1, colorbar=1, colorrange=extrema(res[1:downsample:N, :]), colormap=:turbo, kwargs...)
-    ctitle = "S"
+function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, size(res, 1)), downsample=1, colorbar=1, colorrange=extrema(res[1:downsample:N, :]), contourcolor=:crimson, kwargs...)
+    ctitle = "ΔS (a.u.)"
     ax.xlabel="Time (s)"
     ax.ylabel="Frequency (Hz)"#, yscale=Makie.pseudolog10);
     t, freqs, res = decompose(res)
     ts = Interval(extrema(t[1:downsample:N])...)
     fs = Interval(extrema(exp10.(freqs))...)
-    p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :]; colorrange, colormap, kwargs...);
+    p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :]; colorrange, kwargs...);
     colorbar > 0 && Colorbar(current_figure()[colorbar, 2], p; label=ctitle)
 
     for b in B[AN.peaktime.(B) .∈ (ts,)]
         t, freqs, res = decompose(b.mask)
-        contour!(ax, t[1:downsample:end], exp10.(freqs), res[1:downsample:end, :]; color=:crimson, linewidth=2)
+        contour!(ax, t[1:downsample:end], exp10.(freqs), res[1:downsample:end, :]; color=contourcolor, linewidth=2)
         vs = collect(Iterators.product((b |> AN.mask |> AN.waveletmatrix |> dims .|> extrema)...))
         poly!(Point2f.(vs[[1, 2, 4, 3]]), color = RGBA(0, 0, 0, 0), strokecolor = :gray11, strokewidth = 4)
     end
