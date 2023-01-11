@@ -44,7 +44,7 @@ function plotreferencevolume(S; dotext=true, dostructures = true, ids=:targets, 
 
             if dotext
                 _, idx = findmax(z) # The highest unit
-                text!(s, string(probeid), position=Vec3f0(x[idx], z[idx], -y[idx]), space=:data, textsize=5, align=(:right, :bottom), rotation=Quaternion((-0.3390201, 0.33899, 0.6205722, -0.620517)), transparency=true)
+                text!(s, string(probeid), position=Vec3f0(x[idx], z[idx], -y[idx]), space=:data, fontsize=5, align=(:right, :bottom), rotation=Quaternion((-0.3390201, 0.33899, 0.6205722, -0.620517)), transparency=true)
             end
         end
     end

@@ -117,7 +117,7 @@ function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([
         _psd = psd[Dim{:frequency}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=slopecolor, linewidth=5)
-        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
+        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), fontsize=40)
     end
     return fig
 end
@@ -144,7 +144,7 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, 
         _psd = psd[Dim{:frequency}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color=slopecolor, linewidth=5)
-        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), textsize=40)
+        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position=Point2f0(position), fontsize=40)
     end
     return fig
 end
