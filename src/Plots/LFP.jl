@@ -289,7 +289,7 @@ function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, 
         t, freqs, res = decompose(b.mask)
         contour!(ax, t[1:downsample:end], exp10.(freqs), res[1:downsample:end, :]; color=contourcolor, linewidth=2)
         vs = collect(Iterators.product((b |> AN.mask |> AN.waveletmatrix |> dims .|> extrema)...))
-        poly!(Point2f.(vs[[1, 2, 4, 3]]), color = RGBA(0, 0, 0, 0), strokecolor = :gray51, strokewidth = 4)
+        poly!(Point2f.(vs[[1, 2, 4, 3]]), color = RGBA(0, 0, 0, 0), strokecolor = :gray32, strokewidth = 4)
     end
     ax.limits = (extrema(ts), extrema(fs))
     return ax
