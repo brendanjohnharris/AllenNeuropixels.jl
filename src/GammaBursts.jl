@@ -23,10 +23,10 @@ Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
 
 duration(B::Burst) = B.fit.param[4]
 logspectralwidth(B::Burst) = B.fit.param[5]
-function spectralwidth(B::Burst)
+function spectralwidth(B::Burst) # Std of a log-normal distribution
     σ = logspectralwidth(B)
     μ = logpeakfreq(B)
-    return (exp10(σ^2) - 1)*exp10(2*μ + σ^2)
+    return sqrt((exp10(σ^2) - 1)*exp10(2*μ + σ^2))
 end
 amplitude(B::Burst) = B.fit.param[1]
 mask(B::Burst) = B.mask
@@ -75,7 +75,7 @@ function basicfilter!(B::BurstVector; pass=nothing, fmin=0.1, tmin=2, tmax=5) # 
     # filter!(b->size(mask(b), Ti) < tmax/dt(b), B)
     filter!(b->size(mask(b), Ti) > tmin/maxfreq(b)/dt(b), B)
     isnothing(pass) || (filter!(b->size(mask(b), Ti) < tmax/pass[1]/dt(b), B))
-    filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
+    # filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
     # filter!(b->passes(extrema(dims(mask(b), Dim{:frequency}))), B)
 end
 basicfilter!(; kwargs...) = x->basicfilter!(x; kwargs...)
@@ -651,7 +651,6 @@ function aggregatefit(ℬ::BurstVector; span=3)
     end
 end
 
-
 function gaussianmask(B...; ts=nothing, fs=nothing, span=3)
     ℬ = B[1]
     if isnothing(ts)
@@ -697,6 +696,25 @@ function burstoverlap(res1::LogWaveletMatrix, res2::LogWaveletMatrix; normdims=:
 end
 
 burstoverlap(B1::BurstVector, B2::BurstVector) = burstoverlap(gaussianmask(B1, B2)...)
+
+# function burstoverlap(B1::AbstractBurst, B2::AbstractBurst)
+#     M1, M2 = gaussianmask([B1], [B2])
+#     M1 = M1./sum(M1)
+#     M2 = M2./sum(M2)
+
+#     # * Returns the overlap index of the two bursts
+# end
+
+function overlapintervals(B1::BurstVector, B2::BurstVector; thresh=0.1) # Threshold on something. Start with the delta between burst centres
+    Δ = burstdistances(B1, B2)
+    # * Select bursts closer than thresh...
+    # * Returns intervals representing the durations over which bursts do overlap
+end
+
+function burstcommunication(LFPs, ℬ) # Both args should be 2-vectors.
+
+    # * Calculate a vector of e.g. PLI's between the two vectors of bursts and their LFP traces
+end
 
 """
 Shuffle times of a burst vector
