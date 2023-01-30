@@ -705,13 +705,38 @@ burstoverlap(B1::BurstVector, B2::BurstVector) = burstoverlap(gaussianmask(B1, B
 #     # * Returns the overlap index of the two bursts
 # end
 
-function overlapintervals(B1::BurstVector, B2::BurstVector; thresh=0.1) # Threshold on something. Start with the delta between burst centres
-    Δ = burstdistances(B1, B2)
+function overlapintervals(B1::BurstVector, B2::BurstVector; thresh=0.05, durationthresh=thresh) # Threshold on something. Start with the delta between burst centres. 50 ms. Duration of bursts around 100ms
+    B1 = B1[duration.(B1) .> durationthresh]
+    B2 = B2[duration.(B2) .> durationthresh]
+    Δ = abs.(burstdistances(B1, B2))
     # * Select bursts closer than thresh...
-    # * Returns intervals representing the durations over which bursts do overlap
+    bis = [[], []]
+    for bi in 1:size(Δ, 1)
+        td = Δ[bi, :]
+        if any(td .< thresh)
+            push!(bis[1], B1[bi])
+            push!(bis[2], B2[findmin(td)[2]])
+        end
+    end
+    return bis
+    # ints = []
+    # for i in 1:length(bis[1])
+    #     b1 = B1[bis[1][i]]
+    #     b2 = B2[bis[2][i]]
+    #     int1 = interval(b1)
+    #     int2 = interval(b2)
+    #     int = int1 ∩ int2
+    #     !isempty(int) && push!(ints, int)
+    # end
+    # return ints
 end
 
 function burstcommunication(LFPs, ℬ) # Both args should be 2-vectors.
+    # * Find intervals of nearby bursts
+    ℬ = overlapintervals(ℬ...)
+    ints = [interval.(B) for B in ℬ]
+    channels = [getchannel.(B) for B in ℬ]
+    ts = [[LFPs[i][Ti(int), Dim{:channel}(At(c))] for (c, int) in zip(channels[i], ints[i])] for i in 1:length(LFPs)]
 
     # * Calculate a vector of e.g. PLI's between the two vectors of bursts and their LFP traces
 end
