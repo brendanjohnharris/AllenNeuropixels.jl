@@ -216,7 +216,7 @@ function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=3, bound
     return B
 end
 
-function mmap_detectbursts(res::LogWaveletMatrix; window=100000, kwargs...)
+function mmap_detectbursts(res::LogWaveletMatrix; window=50000, kwargs...)
     ti = _slidingwindow(collect(dims(res, Ti)), window; tail=true)
     ti = [Interval(extrema(t)...) for t in ti]
     B = Vector{Burst}()
@@ -731,7 +731,7 @@ function overlapintervals(B1::BurstVector, B2::BurstVector; thresh=0.1, duration
     # return ints
 end
 
-function burstcommunication(LFPs, ℬ) # Both args should be 2-vectors.
+function burstcommunication(LFPs, ℬ; metric = :weighted_phase_lag_index) # Both args should be 2-vectors.
     # * Find intervals of nearby bursts
     ℬ = overlapintervals(ℬ...)
     ints = [interval.(B) for B in ℬ]
@@ -739,6 +739,15 @@ function burstcommunication(LFPs, ℬ) # Both args should be 2-vectors.
     ts = [[LFPs[i][Ti(int), Dim{:channel}(At(c))] for (c, int) in zip(channels[i], ints[i])] for i in 1:length(LFPs)]
 
     # * Calculate a vector of e.g. PLI's between the two vectors of bursts and their LFP traces
+    C = AA.multitaper(ts...)
+    W = AA.spectralconnectivity(C; metric)
+    return W
+end
+
+function burstcommunication(LFPs, ℬ, f; kwargs...)
+    W = burstcommunication(LFPs, ℬ; kwargs...)
+    Ws = [w[Dim{:frequency}(Near(Float64(f)))] for w in W]
+    return Ws
 end
 
 """
