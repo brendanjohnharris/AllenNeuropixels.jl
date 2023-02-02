@@ -216,7 +216,7 @@ function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=3, bound
     return B
 end
 
-function mmap_detectbursts(res::LogWaveletMatrix; window=50000, kwargs...)
+function mmap_detectbursts(res::LogWaveletMatrix; window=100000, kwargs...)
     ti = _slidingwindow(collect(dims(res, Ti)), window; tail=true)
     ti = [Interval(extrema(t)...) for t in ti]
     B = Vector{Burst}()
@@ -705,7 +705,7 @@ burstoverlap(B1::BurstVector, B2::BurstVector) = burstoverlap(gaussianmask(B1, B
 #     # * Returns the overlap index of the two bursts
 # end
 
-function overlapintervals(B1::BurstVector, B2::BurstVector; thresh=0.05, durationthresh=thresh) # Threshold on something. Start with the delta between burst centres. 50 ms. Duration of bursts around 100ms
+function overlapintervals(B1::BurstVector, B2::BurstVector; thresh=0.1, durationthresh=0.0) # Threshold on something. Start with the delta between burst centres. 50 ms. Duration of bursts around 100ms
     B1 = B1[duration.(B1) .> durationthresh]
     B2 = B2[duration.(B2) .> durationthresh]
     Δ = abs.(burstdistances(B1, B2))
