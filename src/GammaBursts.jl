@@ -98,6 +98,8 @@ function filtergammabursts!(B::BurstVector; fmin=1, tmin=0.008, pass=[50, 60]) #
     # ..... Other stuff
 end
 
+filternbg! = filtergammabursts!
+
 # # Old method, global distribution
 # function threshold(res, thresh, method)
 #     if method == :percentile
@@ -555,10 +557,13 @@ function burstdelta(A::BurstVector, B::BurstVector; feed=:forward)
 end
 
 
-function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
+function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, kwargs...)
     unitchannels = getclosestchannels(sessionid, probeid, keys(Sp), channels)
     # * Count the number of spikes within bursts vs outside bursts. Assume Sp contains spikes only in the duration of the LFP used to calculate bursts.
     cols = [:unit, :channel, :mean_rate, :burst_rate, :nonburst_rate]
+    if !isnothing(phi)
+        append!(cols, [:phase_synchrony])
+    end
     stats = DataFrame([[] for _ in cols], cols)
     for u in keys(unitchannels)
         b = B[unitchannels[u]]
@@ -574,7 +579,15 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, kwargs...)
         burst = burst/Δt
         nonburst = nonburst/(ΔT - Δt)
 
-        push!(stats, [u, unitchannels[u], whole, burst, nonburst])
+        topush = [u, unitchannels[u], whole, burst, nonburst]
+        # * Phase locking index
+        if :phase_synchrony in cols
+            phi = burstlfp(b, phi)
+
+            append!(topush, [phase_synchrony])
+        end
+
+        push!(stats, topush)
     end
     return stats
 end
