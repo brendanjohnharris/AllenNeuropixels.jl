@@ -59,13 +59,25 @@ end
 # sessionid(B::Burst) = hasfield(B.mask.metadata, :sessionid) ? B.mask.metadata[:sessionid] : nothing
 # channel(B::Burst) = hasfield(B.mask.metadata, :channel) ? B.mask.metadata[:channel] : nothing
 # probeid(B::Burst) = hasfield(B.mask.metadata, :probeid) ? B.mask.metadata[:probeid] : nothing
-
-function burstlfp(B::Burst, LFP::LFPMatrix, σ=1.0)
+function _burstsubset(B, σ)
     channel = getchannel(B)
     isnothing(channel) && @error "Burst has no associated LFP"
     ts = interval(B, σ)
+    return channel, ts
+end
+
+function burstsubset(B::Burst, LFP::LFPMatrix, σ=1.0)
+    channel, ts = _burstsubset(B, σ)
     return LFP[Ti(ts), Dim{:channel}(At(channel))]
 end
+
+function burstsubset(B::Burst, res::LogWaveletMatrix, σ=1.0)
+    channel, ts = _burstsubset(B, σ)
+    @assert channel == getchannel(B)
+    return res[Ti(ts)]
+end
+
+burstlfp = burstsubset
 
 function basicfilter!(B::BurstVector; pass=nothing, fmin=0.1, tmin=2, tmax=5) # fmin in octaves
     # fmin = log10(fmin)
@@ -569,7 +581,9 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, kwarg
         b = B[unitchannels[u]]
         is = interval.(b)
         whole = length(Sp[u])
-        burst = burst = inany.(Sp[u], (is,)) |> sum
+        _burst = inany.(Sp[u], (is,))
+        burstspikes = Sp[u][_burst]
+        burst = _burst |> sum
         nonburst = whole - burst
 
         ΔT = (maximum(Sp[u]) - minimum(Sp[u]))
@@ -582,8 +596,7 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, kwarg
         topush = [u, unitchannels[u], whole, burst, nonburst]
         # * Phase locking index
         if :phase_synchrony in cols
-            phi = burstlfp(b, phi)
-
+            phaselockingindex(phi, burstspikes) # burstspikes are only the spikes that occur during bursts
             append!(topush, [phase_synchrony])
         end
 
@@ -592,26 +605,33 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, kwarg
     return stats
 end
 
-"""
-Buszaki's phase-locking index ("Gamma rhythm communication between entorhinal cortex and dentate gyrus neuronal assemblies")
-"""
+
 function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     # * Check the spikes are all in the bounds
     inter = Interval(extrema(dims(phi, Ti))...)
     s = s[s.∈[inter]]
     # * Calculate the phases during each spike, for each frequency
-    phases = exp.(1im.*phi[Ti(Near(s))])
+    return phi[Ti(Near(s))]
 end
+function pairwisephaseconsistency(x::AbstractVector) # Eq. 14 of Vinck 2010
+    x = vec(x)
+    N = length(x)
+    f(ϕ, ω) = cos(ϕ)*cos(ω) + sin(ϕ)*sin(ω) # Dot product between unit vectors with given phases
+    Δ = 0
+    for i = 1:N-1
+        for j = i+1:N
+            Δ += f(x[i], x[j])
+        end
+    end
+    return (2/(N*(N-1)))*Δ
+end
+
+"""
+Buzsaki's phase-locking index ("Gamma rhythm communication between entorhinal cortex and dentate gyrus neuronal assemblies")
+"""
 function phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
-    phases = _phaselockingindex(phi, s)
-    ν = mean(phases, dims=Ti)
-    r = abs.(ν)
-end
-function phaselockingindex(phi::Vector{LogWaveletMatrix}, s::AbstractVector)
-    phases = _phaselockingindex.(phi, (s,))
-    phases = cat(phases, dims=Ti)
-    ν = mean(phases, dims=Ti)
-    r = abs.(ν)
+    phis = _phaselockingindex(phi, s)
+    𝒴 = mapslices(pairwisephaseconsistency, phis, dims=Ti)
 end
 
 
