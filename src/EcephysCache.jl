@@ -19,6 +19,17 @@ function getchannels()
 end
 export getchannels
 
+# function getrunningspeed(S::AbstractSession)
+#     CSV.read(IOBuffer(S.pyObject.running_speed.to_csv()), DataFrame)[:, 2:end]
+# end
+
+# function formatrunningspeed(S::AbstractSession)
+#     r = getrunningspeed(S)
+#     ts = (r.end_time .+ r.start_time)./2
+#     Δt, σ = [diff(ts)] .|> (mean, std)
+#     @assert σ < 1e-2*Δt
+# end
+
 listprobes(session) = getchannels.((session,), getprobeids(session))
 export listprobes
 
@@ -42,6 +53,7 @@ getid(S::AbstractSession) = S.pyObject.ecephys_session_id
 getprobes(S::AbstractSession) = CSV.read(IOBuffer(S.pyObject.probes.to_csv()), DataFrame)
 getprobeids(S::AbstractSession) = getprobes(S)[!, :id]
 getchannels(S::AbstractSession) = CSV.read(IOBuffer(S.pyObject.channels.to_csv()), DataFrame)
+getfile(S::AbstractSession) = datadir*"Ecephys/session_"*string(getid(S))*"/session_"*string(getid(S))*".nwb"
 function getchannels(S::AbstractSession, probeid)
     c = getchannels(S)
     c = subset(c, :probe_id=>ByRow(==(probeid)))

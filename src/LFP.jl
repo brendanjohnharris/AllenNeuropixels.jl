@@ -167,6 +167,9 @@ end
 This is the one you should be using. Get lfp data by channel id and time intervals or vector. Also, throw error if you try to access an invalid time interval.
 """
 function getlfp(session::AbstractSession, probeid::Int; channels=getlfpchannels(session, probeid), times=ClosedInterval(extrema(getlfptimes(session, probeid))...), inbrain=false)
+    if isempty(channels)
+        channels = getlfpchannels(session, probeid)
+    end
     if isinvalidtime(session, probeid, times)
         @error "Requested LFP data contains an invalid time..."
     end
@@ -230,7 +233,7 @@ function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector
     if structures isa String
         structures = [structures]
     end
-    channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(==(structures)), skipmissing=true)
+    channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(∈(structures)), skipmissing=true)
     channels = channels.id ∩ getlfpchannels(session, probeid)
     isempty(channels) && @error "No matching channels found for structure(s) $structures. Perhaps you have entered the wrong probe id?"
     getlfp(session, probeid; channels, kwargs...)

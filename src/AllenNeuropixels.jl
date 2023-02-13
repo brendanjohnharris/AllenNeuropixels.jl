@@ -83,12 +83,13 @@ include("./BrainObservatory.jl")
 include("./Streaming.jl")
 include("./LFP.jl")
 include("./SparseDimArray.jl")
-include("./SpikeBand.jl")
 include("./GammaBursts.jl")
+include("./SpikeBand.jl")
 include("./SpikeCluster.jl")
 include("./MouseConnectivityCache.jl")
 include("./Ontologies.jl")
 include("./ReferenceSpace.jl")
+include("./Behaviour.jl")
 
 
 end
