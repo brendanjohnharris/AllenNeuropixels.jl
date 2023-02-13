@@ -20,7 +20,7 @@ end
 getspiketimes(S::AbstractSession) = S.pyObject.spike_times
 getspikeamplitudes(S::AbstractSession) = S.pyObject.spike_amplitudes
 
-function getspiketimes(S::AbstractSession, structure::String)
+function getspiketimes(S::AbstractSession, structure::AbstractString)
     unitstructs = getunitmetrics(S)
     unitids = unitstructs[unitstructs.structure_acronym .== structure, :].unit_id
     spiketimes = filter(p -> p[1] in unitids, getspiketimes(S))
@@ -73,6 +73,27 @@ function spikematrix(Sp::AbstractDict, bin=1e-4; rectify=4)
     return spikes
 end
 
+function burstmatrix(Bs::AbstractDict, bin=1e-2; rectify=4)
+    cs = collect(keys(Bs))
+    b = spikematrix(Bs, bin; rectify)
+    b = goSparseDimArray(b.data, (Ti(collect(dims(b, Ti))), Dim{:channel}(cs)))
+end
+function burstmatrix(B::AbstractVector{<:BurstVector}, args...; kwargs...)
+    channels = [getchannel(b[1]) for b in B]
+    d = Dict(channels[i] => peaktime.(B[i]) for i in eachindex(channels))
+    return burstmatrix(d, args...; kwargs...)
+end
+
+function smoothspikematrix(s; windowfunc=hanning, window=0.1)
+    ts = collect(s.dims[1])
+    dt = mean(diff(collect(s.dims[1])))
+    n = ceil(Int, window/dt/2)*2
+    x = hcat([DSP.conv(x[:], windowfunc(n)) for x in eachcol(collect(s))]...)
+    x = x[n÷2:end-n÷2, :]
+    return rectifytime(DimArray(x, (Ti(ts), dims(s, 2))))
+    # ! Note that the hanning window has an integral of a half
+
+end
 
 
 # `count` is a boolean indicating whether to return the number of spikes in each bin, or sum the amplitudes

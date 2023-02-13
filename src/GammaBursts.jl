@@ -16,11 +16,14 @@ Base.@kwdef mutable struct Burst <: AbstractBurst
     fit = nothing
     width = nothing
     significance = nothing
+    # phasemask::Union{Nothing, LogWaveletMatrix}=nothing # ! Uncomment soon
 end
 
 Burst(mask, thresh; kwargs...) = Burst(; mask, thresh, kwargs...)
 Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
 
+# phasemask(B::Burst) = B.phasemask # ! Uncomment soon
+phasemask(B::Burst) = B.significance # Hack until update struct fields
 duration(B::Burst) = B.fit.param[4]
 logspectralwidth(B::Burst) = B.fit.param[5]
 function spectralwidth(B::Burst) # Std of a log-normal distribution
@@ -569,7 +572,8 @@ function burstdelta(A::BurstVector, B::BurstVector; feed=:forward)
 end
 
 
-function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, kwargs...)
+function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, phipass=[1, 100], kwargs...)
+    phipass = log10.(phipass)
     unitchannels = getclosestchannels(sessionid, probeid, keys(Sp), channels)
     # * Count the number of spikes within bursts vs outside bursts. Assume Sp contains spikes only in the duration of the LFP used to calculate bursts.
     cols = [:unit, :channel, :mean_rate, :burst_rate, :nonburst_rate]
@@ -596,6 +600,7 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, kwarg
         topush = [u, unitchannels[u], whole, burst, nonburst]
         # * Phase locking index
         if :phase_synchrony in cols
+            # ! phi will have to be replaced by phase masks for each burst. Using the wavelet phis is too costly
             phaselockingindex(phi, burstspikes) # burstspikes are only the spikes that occur during bursts
             append!(topush, [phase_synchrony])
         end
@@ -631,8 +636,10 @@ Buzsaki's phase-locking index ("Gamma rhythm communication between entorhinal co
 """
 function phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     phis = _phaselockingindex(phi, s)
-    𝒴 = mapslices(pairwisephaseconsistency, phis, dims=Ti)
+    𝒴 = mapslices(pairwisephaseconsistency, phis, dims=Ti)[Ti(1)]
 end
+
+# function phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
 
 
 
@@ -801,4 +808,21 @@ function randomisebursts(BS::BurstVector)
     # [B.mask.dims[1].val.data = B.mask.dims[1].val.data .- ts[i] for (i, B) in enumerate(ℬ)]
     # [B.peak[1] -= ts[i] for (i, B) in enumerate(ℬ)]
     return ℬ
+end
+
+function addphasemask!(b::AbstractBurst, ϕ::LogWaveletMatrix)
+    m = mask(b)
+    tis = dims(m, Ti)
+    fs = dims(m, Dim{:logfrequency})
+    b.significance = ϕ[Ti(At(collect(tis))), Dim{:logfrequency}(At(collect(fs)))]
+end
+addphasemasks!(B::BurstVector, ϕ::LogWaveletMatrix) = addphasemask!.(B, [ϕ])
+
+function addphasemasks(B::BurstVector, ϕ::LogWaveletMatrix)
+    B = deepcopy(B)
+    for b in B # Just in case these are old bursts, without the phasemask field
+        b = Burst(b.mask, b.thresh, b.peak, b.fit, b.width, b.significance)# , nothing
+    end
+    addphasemasks!(B, ϕ)
+    return B
 end
