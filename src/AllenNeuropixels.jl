@@ -89,6 +89,7 @@ include("./SpikeCluster.jl")
 include("./MouseConnectivityCache.jl")
 include("./Ontologies.jl")
 include("./ReferenceSpace.jl")
+include("./BurstIndices.jl")
 include("./Behaviour.jl")
 
 
