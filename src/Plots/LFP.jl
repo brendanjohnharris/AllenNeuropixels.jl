@@ -280,8 +280,8 @@ function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector; N=min(10000, 
     ax.xlabel="Time (s)"
     ax.ylabel="Frequency (Hz)"#, yscale=Makie.pseudolog10);
     t, freqs, res = decompose(res)
-    ts = Interval(extrema(t[1:downsample:N])...)
-    fs = Interval(extrema(exp10.(freqs))...)
+    ts = ClosedInterval(extrema(t[1:downsample:N])...)
+    fs = ClosedInterval(extrema(exp10.(freqs))...)
     p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :]; colorrange, kwargs...);
     colorbar > 0 && Colorbar(current_figure()[colorbar, 2], p; label=ctitle)
 

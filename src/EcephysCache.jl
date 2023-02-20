@@ -212,6 +212,10 @@ function getstimulustimes(S::Session, stimulusname)
     times = [x..y for (x, y) in eachrow(ts)]
 end
 
+function getstimulustimes(; params...)
+    S = Session(params[:sessionid])
+    getstimulustimes(S, params[:stimulus])[params[:epoch]]
+end
 
 
 # * Stimulus analysis
