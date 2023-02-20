@@ -37,7 +37,7 @@ end
 
 function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor=:crimson, colormap=nothing, linealpha =0.3, label="", kwargs...)
     sims = zeros(length(Y))
-    ts = Interval(extrema(dims(X, Ti))...)
+    ts = ClosedInterval(extrema(dims(X, Ti))...)
     Y = deepcopy(Y)
     [(Y[i] = Y[i][Y[i] .∈ (ts,)]) for i in eachindex(Y)]
     # Sort by mean, standardised X value at each T
@@ -66,7 +66,7 @@ end
 
 function plotspikebursts!(ax, session, probeid, X::AN.LFPMatrix, Y::Dict; marker=:vline, colormap=:turbo, markercolor=:red, markersize=15, maxn=min(size(X, 1), 20000), kwargs...)
     X = X[1:maxn, :]
-    subt = Interval(extrema(dims(X, Ti))...)
+    subt = ClosedInterval(extrema(dims(X, Ti))...)
     depths = AN.getchanneldepths(session, probeid, dims(X, Dim{:channel})|>collect)
     heatmap!(ax, collect(dims(X, Ti)), depths, X.data; colormap)
     ax.yreversed = true

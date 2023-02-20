@@ -1,3 +1,5 @@
+using Dierckx
+
 function getrunningspeed(S::AbstractSession)
     f = h5open(getfile(S), "r")
     r = f["processing"]["running"]["running_speed"]["data"] |> read
@@ -16,3 +18,42 @@ function smoothrunningspeed(S::AbstractSession; windowfunc=hanning, window=1)
 end
 
 smoothrunningspeed(s::Integer; kwargs...) = smoothrunningspeed(Session(s); kwargs...)
+
+
+function stimulustrace(S::AbstractSession, feature, times)
+    times = Interval(extrema(times)...)
+    df = getstimuli(S, times)
+    s = df[:, feature]
+    x = zeros(length(s))
+    x[s .== "null"] .= NaN
+    idxs = s .!= "null"
+    x[idxs] .= Meta.parse.(s[idxs])
+    t = mean.(zip(df.start_time, df.stop_time))
+    return DimArray(x, (Ti(t),))
+end
+
+function stimulustrace(S::AbstractSession, feature, times::AbstractRange)
+    s = stimulustrace(S, feature, extrema(times))
+    interpmatch(s, times)
+end
+
+function stimulustrace(S::AbstractSession, feature, x::LFPVector)
+    t = dims(x, Ti)
+    stimulustrace(S, feature, t)
+end
+
+function interpmatch(x::LFPVector, ts::AbstractRange)
+    f = Spline1D(collect(dims(x, Ti)), x)
+    x̂ = f(ts)
+    return DimArray(x̂, (Ti(ts),); metadata=x.metadata)
+end
+
+function interpmatch(x::LFPVector, y::LFPVector)
+	ts = dims(y, Ti)
+	interpmatch(x, ts)
+end
+
+function interpcorr(x::LFPVector, y::LFPVector)
+	x = interpmatch(x, y)
+	r = corspearman(x, y)
+end

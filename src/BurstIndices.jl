@@ -18,3 +18,5 @@ function burstratetrace(B::BurstVector; window=5, kwargs...) # Default 5s window
     s = peaktimes.(B)
     s = convolvespikes(δ, s; window, kwargs...)
 end
+
+

@@ -127,7 +127,7 @@ function threshold(res, thresh, method)
     if length(method) == 2 # A tuple of (method, surrogate_res)
         sres = last(method)
         sres = convert(LogWaveletMatrix, sres)
-        res = sres[Ti(Interval(extrema(dims(res)[1])...)), Dim{:logfrequency}(Interval(extrema(dims(res)[2])...))]
+        res = sres[Ti(ClosedInterval(extrema(dims(res)[1])...)), Dim{:logfrequency}(ClosedInterval(extrema(dims(res)[2])...))]
         method = first(method)
     end
     if method == :percentile
@@ -235,7 +235,7 @@ end
 
 function mmap_detectbursts(res::LogWaveletMatrix; window=50000, kwargs...)
     ti = _slidingwindow(collect(dims(res, Ti)), window; tail=true)
-    ti = [Interval(extrema(t)...) for t in ti]
+    ti = [ClosedInterval(extrema(t)...) for t in ti]
     B = Vector{Burst}()
     threadlog, threadmax = (0, length(ti))
     @withprogress name="Burst detection" begin
@@ -613,7 +613,7 @@ end
 
 function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     # * Check the spikes are all in the bounds
-    inter = Interval(extrema(dims(phi, Ti))...)
+    inter = ClosedInterval(extrema(dims(phi, Ti))...)
     s = s[s.∈[inter]]
     # * Calculate the phases during each spike, for each frequency
     return phi[Ti(Near(s))]
@@ -814,7 +814,7 @@ function addphasemask!(b::AbstractBurst, ϕ::LogWaveletMatrix)
     m = mask(b)
     tis = dims(m, Ti)
     fs = dims(m, Dim{:logfrequency})
-    b.significance = ϕ[Ti(At(collect(tis))), Dim{:logfrequency}(At(collect(fs)))]
+    b.significance = ϕ[Ti(Near(collect(tis))), Dim{:logfrequency}(Near(collect(fs)))]
 end
 addphasemasks!(B::BurstVector, ϕ::LogWaveletMatrix) = addphasemask!.(B, [ϕ])
 
