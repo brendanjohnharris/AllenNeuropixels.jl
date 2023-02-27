@@ -12,7 +12,9 @@ function smoothrunningspeed(S::AbstractSession; windowfunc=hanning, window=1)
     ts = r.dims[1]
     dt = mean(diff(collect(r.dims[1])))
     n = ceil(Int, window/dt/2)*2
-    x = DSP.conv(r, windowfunc(n))
+    w = windowfunc(n)
+    w = w./sum(w) # Normalized wavelet. Outputs after convolution become averages
+    x = DSP.conv(r, w)
     x = x[n÷2:end-n÷2]
     return DimArray(x, (Ti(collect(ts)),), metadata=r.metadata)
 end
@@ -48,12 +50,15 @@ function interpmatch(x::LFPVector, ts::AbstractRange)
     return DimArray(x̂, (Ti(ts),); metadata=x.metadata)
 end
 
+"""
+Match the time indices of the first input DimVector to the second by interpolating the first
+"""
 function interpmatch(x::LFPVector, y::LFPVector)
-	ts = dims(y, Ti)
+	ts = dims(y, Ti).val.data
 	interpmatch(x, ts)
 end
 
-function interpcorr(x::LFPVector, y::LFPVector)
-	x = interpmatch(x, y)
-	r = corspearman(x, y)
-end
+# function interpcorr(x::LFPVector, y::LFPVector)
+# 	x = interpmatch(x, y)
+# 	r = corspearman(x, y)
+# end

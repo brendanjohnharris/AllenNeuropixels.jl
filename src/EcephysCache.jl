@@ -49,6 +49,7 @@ struct Session <: AbstractSession
 end
 export Session
 Session(session_id::Int; kwargs...) = Session(getsessiondata(session_id; kwargs...))
+Session(; params...) = Session(params[:sessionid]);
 getid(S::AbstractSession) = S.pyObject.ecephys_session_id
 getprobes(S::AbstractSession) = CSV.read(IOBuffer(S.pyObject.probes.to_csv()), DataFrame)
 getprobeids(S::AbstractSession) = getprobes(S)[!, :id]

@@ -1,7 +1,7 @@
 function convolvespikes(dt::Number, s::Vector; window, windowfunc=hanning)
     n = ceil(Int, window/dt/2)*2 + 1 # Window width, always odd
     w = windowfunc(n)
-    w = w./sum(w)./dt # Normalize the window so that each spike contributes '1' rate
+    w = w./sum(w)./dt # Normalize the window so that each spike contributes '1' rate. Is this right?
     # Assume the window is dt*n wide
     ts = (minimum(s) - dt*(n-1)/2):dt:(maximum(s) + dt*(n-1)/2)
     x = DimArray(zeros(length(ts)), (Ti(ts),))
@@ -15,8 +15,6 @@ end
 
 function burstratetrace(B::BurstVector; window=5, kwargs...) # Default 5s window
     δ = mean(dt.(B)) # timestep for resulting trace
-    s = peaktimes.(B)
+    s = peaktime.(B)
     s = convolvespikes(δ, s; window, kwargs...)
 end
-
-
