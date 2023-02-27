@@ -639,11 +639,45 @@ function phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     𝒴 = mapslices(pairwisephaseconsistency, phis, dims=Ti)[Ti(1)]
 end
 
-# function phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
+"""
+Calculate the phase-locking index using the wavelet transform masks stored in each bursts. Drops any bursts that do not have wavelet information at the specified frequency, `f`.
+"""
+function _phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
+    # First, get a list of phases for every spike with the burst interval
+    ts = interval.(B)
+    phis = phasemask.(B)
+    phis = getindex.(phis, [Dim{:logfrequency}(Near(log10(f)))])
+    s = s[inany(s, ts)]
+    ϕ = similar(s)
+    for (e, es) in enumerate(s)
+        i = findfirst([es ∈ t for t in ts])
+        ϕ[e] = phis[i][Ti(Near(es))]
+    end
+    return ϕ
+end
 
+function phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
+    phis = _phaselockingindex(B, s, f)
+    γ = pairwisephaseconsistency(phis)
+    𝑝 = pvalue(RayleighTest(phis))
+    return (γ, 𝑝)
+end
 
-
-
+function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number)
+    channels = keys(ℬ) |> collect
+    units = keys(Sp) |> collect
+    γ = DimArray(collect(zeros(length(channels), length(units))), (Dim{:channel}(channels), Dim{:unit}(units)))
+    𝑝 = deepcopy(γ)
+    for (i, c) in enumerate(channels)
+        for (j, u) in enumerate(units)
+            @info "Calculating ($i, $j) of $(size(γ))"
+            _γ, _𝑝 = phaselockingindex(ℬ[c], Sp[u], f)
+            γ[i, j] = _γ
+            𝑝[i, j] = _𝑝
+        end
+    end
+    return γ, 𝑝
+end
 
 
 
