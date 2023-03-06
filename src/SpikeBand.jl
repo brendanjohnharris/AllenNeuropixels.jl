@@ -33,7 +33,6 @@ end
 
 function formatspiketimes(; sessionid=757216464, structure="VISp", stimulus="gabors", n=1, filter=true, kwargs...)
     S = Session(sessionid)
-
     spiketimes = getspiketimes(S, structure)
     I = stimulusepochs(S, stimulus).interval[n]
     ks = keys(spiketimes)
