@@ -659,7 +659,7 @@ end
 function phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
     phis = _phaselockingindex(B, s, f)
     γ = pairwisephaseconsistency(phis)
-    𝑝 = pvalue(RayleighTest(phis))
+    𝑝 = isempty(phis) ? 1.0 : pvalue(RayleighTest(phis))
     return (γ, 𝑝)
 end
 
@@ -668,10 +668,10 @@ function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number)
     units = keys(Sp) |> collect
     γ = DimArray(collect(zeros(length(channels), length(units))), (Dim{:channel}(channels), Dim{:unit}(units)))
     𝑝 = deepcopy(γ)
-    for (i, c) in enumerate(channels)
-        for (j, u) in enumerate(units)
-            @info "Calculating ($i, $j) of $(size(γ))"
-            _γ, _𝑝 = phaselockingindex(ℬ[c], Sp[u], f)
+    Threads.@threads for (i, b) in collect(enumerate(values(ℬ)))
+        for (j, s) in enumerate(values(Sp))
+            # @info "Calculating ($i, $j) of $(size(γ))"
+            _γ, _𝑝 = phaselockingindex(b, s, f)
             γ[i, j] = _γ
             𝑝[i, j] = _𝑝
         end
