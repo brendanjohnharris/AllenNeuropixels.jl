@@ -572,39 +572,40 @@ function burstdelta(A::BurstVector, B::BurstVector; feed=:forward)
 end
 
 
-function burstspikestats(B, Sp, channels; sessionid, probeid, phi=nothing, phipass=[1, 100], kwargs...)
-    phipass = log10.(phipass)
+function burstspikestats(B, Sp, channels; sessionid, probeid, phifreqs=1:1:100, kwargs...)
+    phifreqs = log10.(phifreqs)
     unitchannels = getclosestchannels(sessionid, probeid, keys(Sp), channels)
     # * Count the number of spikes within bursts vs outside bursts. Assume Sp contains spikes only in the duration of the LFP used to calculate bursts.
-    cols = [:unit, :channel, :mean_rate, :burst_rate, :nonburst_rate]
-    if !isnothing(phi)
-        append!(cols, [:phase_synchrony])
-    end
+    cols = [:unit, :channel, :mean_rate, :burst_rate, :nonburst_rate, :rate_index, :phase_synchrony]
+    # if !isnothing(phi)
+    #     append!(cols, [:phase_synchrony])
+    # end
     stats = DataFrame([[] for _ in cols], cols)
     for u in keys(unitchannels)
         b = B[unitchannels[u]]
         is = interval.(b)
         whole = length(Sp[u])
-        _burst = inany.(Sp[u], (is,))
-        burstspikes = Sp[u][_burst]
-        burst = _burst |> sum
-        nonburst = whole - burst
+        if isempty(is)
+            topush = [u, unitchannels[u], fill(NaN, length(cols)-2)...]
+        else
+            _burst = inany.(Sp[u], (is,))
+            burstspikes = Sp[u][_burst]
+            burst = _burst |> sum
+            nonburst = whole - burst
 
-        ΔT = (maximum(Sp[u]) - minimum(Sp[u]))
-        Δt = IntervalSets.width.(is) |> sum
+            ΔT = (maximum(Sp[u]) - minimum(Sp[u]))
+            Δt = IntervalSets.width.(is) |> sum
 
-        whole = whole/ΔT
-        burst = burst/Δt
-        nonburst = nonburst/(ΔT - Δt)
+            whole = whole/ΔT
+            burst = burst/Δt
+            nonburst = nonburst/(ΔT - Δt)
 
-        topush = [u, unitchannels[u], whole, burst, nonburst]
-        # * Phase locking index
-        if :phase_synchrony in cols
-            # ! phi will have to be replaced by phase masks for each burst. Using the wavelet phis is too costly
-            phaselockingindex(phi, burstspikes) # burstspikes are only the spikes that occur during bursts
-            append!(topush, [phase_synchrony])
+            rate_index = burst./nonburst
+
+            phase_synchrony = phaselockingindex.([b], [Sp[u]], phifreqs)
+            # phaselockingindex(phi, burstspikes) # burstspikes are only the spikes that occur during bursts
+            topush = [Int(u), unitchannels[u], whole, burst, nonburst, rate_index, phase_synchrony]
         end
-
         push!(stats, topush)
     end
     return stats
@@ -835,9 +836,15 @@ function randomisebursts(BS::BurstVector)
     [B.fit.param[2] = ts[i] for (i, B) in enumerate(ℬ)]
     # * Subtract the centre from the mask dimensions
     for (i, B) in enumerate(ℬ)
-        _t = B.mask.dims[1].val.data .- ts[i]
+        t0 = B.peak[1]
+        _t = B.mask.dims[1].val.data .- t0 .+ ts[i]
         B.mask = DimArray(B.mask.data, (Ti(_t), B.mask.dims[2]))
-        B.peak = (B.peak[1] - ts[i], B.peak[2], B.peak[3])
+        B.peak = (B.peak[1] - t0 + ts[i], B.peak[2], B.peak[3])
+        if hasfield(typeof(B), :phasemask)
+            B.phasemask = DimArray(B.phasemask.data, (Ti(_t), B.phasemask.dims[2]))
+        elseif ndims(B.significance) == 2 # backards compat
+            B.significance = DimArray(B.significance.data, (Ti(_t), B.significance.dims[2]))
+        end
     end
     # [B.mask.dims[1].val.data = B.mask.dims[1].val.data .- ts[i] for (i, B) in enumerate(ℬ)]
     # [B.peak[1] -= ts[i] for (i, B) in enumerate(ℬ)]
