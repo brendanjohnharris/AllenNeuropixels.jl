@@ -867,3 +867,41 @@ function addphasemasks(B::BurstVector, ϕ::LogWaveletMatrix)
     addphasemasks!(B, ϕ)
     return B
 end
+
+
+
+function hellinger(A::AbstractBurst, B::AbstractBurst; samechannelallowed=true)
+    μ₁ = A.fit.param[2]
+    σ₁ = A.fit.param[4]
+    μ₂ = B.fit.param[2]
+    σ₂ = B.fit.param[4]
+    d = abs(μ₁ - μ₂)/5
+    samechannel = false
+    if !samechannelallowed
+        samechannel = getchannel(A) == getchannel(B)
+    end
+    if (d > σ₁ && d > σ₂) || samechannel
+        H = 1
+    else
+        s = σ₁^2 + σ₂^2
+        H² = 1 - sqrt((2*σ₁*σ₂)/(s))*exp((-1/4)*((μ₁ - μ₂)^2/s))
+        H = sqrt(H²)
+    end
+    return H
+end
+
+function hellinger(A::BurstVector, B::BurstVector)
+    H = ones(length(A), length(B))
+    Threads.@threads for I in CartesianIndices(H)
+        i, j  = Tuple(I)
+        if i > j # Only fill in the lower triangle
+            H[i, j] = hellinger(A[i], B[j])
+        elseif i == j
+            H[i, j] = 0.0
+        end
+    end
+    H = Symmetric(H, :L)
+    return H
+end
+
+hellinger(B::BurstVector) = hellinger(B, B)
