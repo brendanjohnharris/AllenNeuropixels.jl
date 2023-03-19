@@ -205,7 +205,7 @@ end
 DSP.hilbert(X::LFPMatrix) = mapslices(hilbert, X, dims=Ti)
 DSP.hilbert(X::LFPVector) = DimArray(hilbert(X|>Array), dims(X); refdims=refdims(X))
 
-function waveletfreqs(t; moth=Morlet(2π), β=1, Q=32)
+function _waveletfreqs(t; moth=Morlet(2π), β=1, Q=32)
     n = length(t)
     fs = 1.0./step(t) # Assume rectified time dim
     W = ContinuousWavelets.computeWavelets(n, wavelet(moth; β, Q);)[1]
@@ -213,18 +213,37 @@ function waveletfreqs(t; moth=Morlet(2π), β=1, Q=32)
     freqs[1] = 0
     return freqs
 end
+function waveletfreqs(t; pass=nothing, kwargs...)
+    freqs = _waveletfreqs(t; kwargs...)
+    isnothing(pass) && return freqs
+    return freqs[freqs .∈ [ClosedInterval(0, maximum(pass))]]
+end
 
 function _wavelettransform(x::AbstractVector; moth, β, Q) # β = 1 means linear in log space
     c = wavelet(moth; β, Q);
     res = ContinuousWavelets.cwt(x, c)
 end
 
-function _wavelettransform(x::LFPVector; rectify=true, moth=Morlet(2π), β=1, Q=32)
+function _wavelettransform(t, x::AbstractVector; pass=nothing, moth, β, Q)
+    if isnothing(pass)
+        return _wavelettransform(x; moth, β, Q)
+    end
+    n = size(x, 1)
+    @assert length(t) == n
+    c = wavelet(moth; β, Q)
+    W = ContinuousWavelets.computeWavelets(n, c)[1]
+    freqs = getMeanFreq(W, 1.0./step(t))
+    pass = ClosedInterval(0, maximum(pass))
+    W = W[:, freqs .∈ [pass]]
+    res = ContinuousWavelets.cwt(x, c, W)[:, freqs .∈ [pass]]
+end
+
+function _wavelettransform(x::LFPVector; rectify=true, moth=Morlet(2π), β=1, Q=32, pass=nothing)
     rectify && (x = rectifytime(x))
-    res = _wavelettransform(x|>Array; moth=Morlet(2π), β=1, Q=32)
     t = dims(x, Ti)
-    freqs = waveletfreqs(t; moth, β, Q)
-    return DimArray(res, (t, Dim{:frequency}(freqs)); metadata=DimensionalData.metadata(x), refdims=refdims(x))
+    res = _wavelettransform(t, x|>Array; moth, β, Q, pass)
+    freqs = waveletfreqs(t; moth, β, Q, pass)
+    res = DimArray(res, (t, Dim{:frequency}(freqs)); metadata=DimensionalData.metadata(x), refdims=refdims(x))
 end
 
 function _wavelettransform(x::LFPVector, ::Val{:mmap}; window=50000, kwargs...)

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.14.7
+# v0.19.22
 
 using Markdown
 using InteractiveUtils
@@ -137,7 +137,7 @@ To access a dataframe of metrics for the brain observatory dataset with the defa
 
 # ╔═╡ 5d47cb91-d8c7-41df-9778-c9a77266ba93
 # This can take a while
-metrics = AN.getunitanalysismetricsbysessiontype("brain_observatory_1.1")
+metrics = AN.getunitanalysismetricsbysessiontype("functional_connectivity")
 
 # ╔═╡ 7d00cd72-a2c0-45a9-b777-b347286f7390
 md"Some session-level metrics are:"
