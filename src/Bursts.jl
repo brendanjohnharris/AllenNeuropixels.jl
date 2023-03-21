@@ -16,14 +16,13 @@ Base.@kwdef mutable struct Burst <: AbstractBurst
     fit = nothing
     width = nothing
     significance = nothing
-    # phasemask::Union{Nothing, LogWaveletMatrix}=nothing # ! Uncomment soon
+    phasemask::Union{Nothing, LogWaveletMatrix}=nothing
 end
 
 Burst(mask, thresh; kwargs...) = Burst(; mask, thresh, kwargs...)
 Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
 
-# phasemask(B::Burst) = B.phasemask # ! Uncomment soon
-phasemask(B::Burst) = B.significance # Hack until update struct fields
+phasemask(B::Burst) = B.phasemask
 duration(B::Burst) = B.fit.param[4]
 logspectralwidth(B::Burst) = B.fit.param[5]
 function spectralwidth(B::Burst) # Std of a log-normal distribution
@@ -855,7 +854,7 @@ function addphasemask!(b::AbstractBurst, ϕ::LogWaveletMatrix)
     m = mask(b)
     tis = dims(m, Ti)
     fs = dims(m, Dim{:logfrequency})
-    b.significance = ϕ[Ti(Near(collect(tis))), Dim{:logfrequency}(Near(collect(fs)))]
+    b.phasemask = ϕ[Ti(Near(collect(tis))), Dim{:logfrequency}(Near(collect(fs)))]
 end
 addphasemasks!(B::BurstVector, ϕ::LogWaveletMatrix) = addphasemask!.(B, [ϕ])
 
