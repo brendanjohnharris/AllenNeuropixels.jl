@@ -94,6 +94,19 @@ function getstructureids(channelids::Vector{Int})
     return acronyms
 end
 
+function getprobestructures(S::AbstractSession)
+    df = listprobes(S)
+    acronyms = [unique(string.(d.structure_acronym)) for d in df]
+    # acronyms = [a[.!ismissing.(a)] for a in acronyms]
+    probeids = [unique(d.probe_id) |> first for d in df]
+    return Dict(probeids .=> acronyms)
+end
+
+function getprobestructures(S::AbstractSession, structures::AbstractVector)
+    D = getprobestructures(S)
+    filter!(d->any(structures .∈ (last(d),)), D)
+    D = Dict(k=>first(v[v.∈[structures]]) for (k, v) in D)
+end
 
 function getunits(; filter_by_validity=true, amplitude_cutoff_maximum = 0.1, presence_ratio_minimum = 0.9, isi_violations_maximum = 0.5)
     str = ecephyscache().get_units(filter_by_validity=filter_by_validity,

@@ -617,7 +617,8 @@ function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     inter = ClosedInterval(extrema(dims(phi, Ti))...)
     s = s[s.∈[inter]]
     # * Calculate the phases during each spike, for each frequency
-    return phi[Ti(Near(s))]
+    phis = phi[Ti(Near(s))]
+    return phis
 end
 function pairwisephaseconsistency(x::AbstractVector) # Eq. 14 of Vinck 2010
     x = vec(x)
@@ -641,19 +642,33 @@ function phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
 end
 
 """
-Calculate the phase-locking index using the wavelet transform masks stored in each bursts. Drops any bursts that do not have wavelet information at the specified frequency, `f`.
+Calculate the phase-locking index using the wavelet transform masks stored in each bursts. Drops any bursts that do not have wavelet information at the specified frequency, `f`. If `centre` is true, the phase of spikes in each burst is centred to the mean phase in each burst. Only consider bursts with at least `n_spikes` spikes, and only count channel-neuron pairs that have `n_bursts` bursts.
 """
-function _phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
+function _phaselockingindex(B::BurstVector, s::AbstractVector, f::Number; centre=true, n_spikes=5, n_bursts=10)
     # First, get a list of phases for every spike with the burst interval
     ts = interval.(B)
     phis = phasemask.(B)
     phis = getindex.(phis, [Dim{:logfrequency}(Near(log10(f)))])
     s = s[inany(s, ts)]
-    ϕ = similar(s)
+    ϕ = [zeros(0) for _ in phis]
     for (e, es) in enumerate(s)
         i = findfirst([es ∈ t for t in ts])
-        ϕ[e] = phis[i][Ti(Near(es))]
+        ϕ_ = phis[i][Ti(Near(es))]
+        append!(ϕ[i], ϕ_)
     end
+    if centre
+        ϕ = [p .- (im.*p .|> exp |> sum |> angle) for p in ϕ] # Subtract circular mean
+    end
+    if n_spikes > 0
+        ϕ = [p for p in ϕ if length(p) ≥ n_spikes]
+    end
+    N_bursts = length(ϕ)
+    if n_bursts > 0 && N_bursts < n_bursts
+        # @warn "This channel has an insufficient number of bursts with spikes: $(length(ϕ))"
+        return []
+    end
+    ϕ = vcat(ϕ...)
+    # @info "This channel-spike pair has $(N_bursts) bursts and $(length(ϕ)) spikes"
     return ϕ
 end
 

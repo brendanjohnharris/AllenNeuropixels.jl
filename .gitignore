@@ -34,3 +34,5 @@ Manifest.toml
 /data/
 /figures/
 *.html
+data
+old_data
