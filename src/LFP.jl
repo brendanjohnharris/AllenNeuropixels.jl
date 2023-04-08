@@ -230,10 +230,10 @@ end
 Now we can overload `getlfp()` to index by structure
 """
 function getlfp(session::AbstractSession, probeid::Int, structures::Union{Vector{<:AbstractString}, AbstractString}; kwargs...)
-    if structures isa String
+    if structures isa AbstractString
         structures = [structures]
     end
-    channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(x->((x==structures)||(x∈structures))), skipmissing=true)
+    channels = subset(getchannels(session, probeid), :ecephys_structure_acronym=>ByRow(∈(structures)), skipmissing=true)
     channels = channels.id ∩ getlfpchannels(session, probeid)
     isempty(channels) && @error "No matching channels found for structure(s) $structures. Perhaps you have entered the wrong probe id?"
     getlfp(session, probeid; channels, kwargs...)
