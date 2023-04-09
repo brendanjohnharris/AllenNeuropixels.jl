@@ -1,5 +1,4 @@
 using DimensionalData
-using PyCall
 using IntervalSets
 using HDF5
 using Statistics
@@ -350,7 +349,7 @@ function fooofedwavelet(x::LFPVector; kwargs...)
     res = wavelettransform(x; kwargs...)
     fooofedwavelet(res)
 end
-
+import AllenNeuropixelsBase.PSDVector, AllenNeuropixelsBase.PSDMatrix
 function aperiodicfit(psd::PSDVector, freqrange=[1.0, 300.0])
     ffreqs = dims(psd, Dim{:frequency}) |> collect
     freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o

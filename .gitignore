@@ -35,3 +35,5 @@ Manifest.toml
 /figures/
 *.html
 /.CondaPkg/
+
+cache
