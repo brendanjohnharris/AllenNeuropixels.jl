@@ -34,6 +34,8 @@ Manifest.toml
 /data/
 /figures/
 *.html
-/.CondaPkg/
+.CondaPkg/
 
 cache
+data
+old_data
