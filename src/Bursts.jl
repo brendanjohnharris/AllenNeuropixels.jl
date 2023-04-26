@@ -114,6 +114,10 @@ end
 
 filternbg! = filtergammabursts!
 
+function filterbursts!(B::BurstVector; pass)
+    filter!(b->peakfreq(b) ∈ pass, B)
+end
+
 # # Old method, global distribution
 # function threshold(res, thresh, method)
 #     if method == :percentile
@@ -253,14 +257,14 @@ end
 function pvalues(B::BurstVector, Bs::BurstVector, f::Function; test=OneSampleTTest, tail=:left)
     d = f.(B)
     ds = f.(Bs)
-    p = pvalue.(test.((ds,), d); tail).*length(d) # Bonferroni correction
+    p = HypothesisTests.pvalue.(test.((ds,), d); tail).*length(d) # Bonferroni correction
 end
 
 function pvalues(B::BurstVector, Bs::BurstVector, fs::AbstractVector{<:Function}; test=OneSampleHotellingT2Test, tail=nothing)
     d = collect.(zip([f.(B) for f in fs]...))
     ds = hcat([f.(Bs) for f in fs]...)
     tests = test.((ds,), d)
-    p = pvalue.(tests).*length(d) # Bonferroni correction
+    p = HypothesisTests.pvalue.(tests).*length(d) # Bonferroni correction
 end
 
 function significancefilter!(B::BurstVector, Bs::BurstVector, f; thresh=0.05, kwargs...)
@@ -616,7 +620,8 @@ function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     inter = ClosedInterval(extrema(dims(phi, Ti))...)
     s = s[s.∈[inter]]
     # * Calculate the phases during each spike, for each frequency
-    return phi[Ti(Near(s))]
+    phis = phi[Ti(Near(s))]
+    return phis
 end
 function pairwisephaseconsistency(x::AbstractVector) # Eq. 14 of Vinck 2010
     x = vec(x)
@@ -640,26 +645,77 @@ function phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
 end
 
 """
-Calculate the phase-locking index using the wavelet transform masks stored in each bursts. Drops any bursts that do not have wavelet information at the specified frequency, `f`.
+Calculate the phase-locking index using the wavelet transform masks stored in each bursts. Drops any bursts that do not have wavelet information at the specified frequency, `f`. If `centre` is true, the phase of spikes in each burst is centred to the mean phase in each burst. Only consider bursts with at least `n_spikes` spikes, and only count channel-neuron pairs that have `n_bursts` bursts.
 """
-function _phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
+function _phaselockingindex(B::BurstVector, s::AbstractVector, f::Number; centre=true, n_spikes=5, n_bursts=10)
     # First, get a list of phases for every spike with the burst interval
     ts = interval.(B)
     phis = phasemask.(B)
     phis = getindex.(phis, [Dim{:logfrequency}(Near(log10(f)))])
     s = s[inany(s, ts)]
-    ϕ = similar(s)
+    ϕ = [zeros(0) for _ in phis]
     for (e, es) in enumerate(s)
         i = findfirst([es ∈ t for t in ts])
-        ϕ[e] = phis[i][Ti(Near(es))]
+        ϕ_ = phis[i][Ti(Near(es))]
+        append!(ϕ[i], ϕ_)
     end
+    if centre
+        ϕ = [p .- (im.*p .|> exp |> sum |> angle) for p in ϕ] # Subtract circular mean
+    end
+    if n_spikes > 0
+        ϕ = [p for p in ϕ if length(p) ≥ n_spikes]
+    end
+    N_bursts = length(ϕ)
+    if n_bursts > 0 && N_bursts < n_bursts
+        # @warn "This channel has an insufficient number of bursts with spikes: $(length(ϕ))"
+        return []
+    end
+    ϕ = vcat(ϕ...)
+    # @info "This channel-spike pair has $(N_bursts) bursts and $(length(ϕ)) spikes"
+    return ϕ
+end
+
+"""
+The phase-locking index for bursts and an LFP signal
+"""
+function _phaselockingindex(B::BurstVector, s::LFPVector, f::Number; centre=true, n_bursts=10)
+    # First, get phases for every burst
+    ts = interval.(B)
+    phis = phasemask.(B)
+    phis = getindex.(phis, [Dim{:logfrequency}(Near(log10(f)))])
+
+    phis = [p[Ti(t)] for (p, t) in zip(phis, ts)] # Just to be sure, same span as below
+    ts = [dims(p, Ti)|>collect for p in phis] # Just to be consistent
+    phis′ = [s[Ti(Near(t))] for t in ts]
+    @assert length.(phis) == length.(phis′)
+
+    # Now get phase differences within each burst
+    ϕ = [collect(p .- p′) for (p, p′) in zip(phis, phis′)]
+
+    if centre
+        ϕ = [p .- (im.*p .|> exp |> sum |> angle) for p in ϕ] # Subtract circular mean
+    end
+    N_bursts = length(ϕ)
+    if n_bursts > 0 && N_bursts < n_bursts
+        @debug "This channel has an insufficient number of bursts with spikes: $(length(ϕ))"
+        return []
+    end
+    ϕ = vcat(ϕ...)
+    @debug "This channel-spike pair has $(N_bursts) bursts and $(length(ϕ)) spikes"
     return ϕ
 end
 
 function phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
     phis = _phaselockingindex(B, s, f)
     γ = pairwisephaseconsistency(phis)
-    𝑝 = isempty(phis) ? 1.0 : pvalue(RayleighTest(phis))
+    𝑝 = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(phis))
+    return (γ, 𝑝)
+end
+
+function phaselockingindex(B::BurstVector, s::LFPVector, f::Number)
+    phis = _phaselockingindex(B, s, f)
+    γ = pairwisephaseconsistency(phis)
+    𝑝 = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(phis))
     return (γ, 𝑝)
 end
 
@@ -674,6 +730,28 @@ function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number)
             _γ, _𝑝 = phaselockingindex(b, s, f)
             γ[i, j] = _γ
             𝑝[i, j] = _𝑝
+        end
+    end
+    return γ, 𝑝
+end
+
+function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where T, f::Number)
+    channels = keys(ℬ) |> collect
+    units = keys(phi) |> collect
+    γ = DimArray(collect(zeros(length(channels), length(units))), (Dim{:channel}(channels), Dim{:channel}(units)))
+    𝑝 = deepcopy(γ)
+    @withprogress name="LFP-LFP phase-locking index" begin
+        threadlog, threadmax = (0, length(values(ℬ)))
+        Threads.@threads for (i, b) in collect(enumerate(values(ℬ)))
+            for (j, s) in enumerate(values(phi))
+                # @info "Calculating ($i, $j) of $(size(γ))"
+                _γ, _𝑝 = phaselockingindex(b, s[:, Near(log(f))], f)
+                γ[i, j] = _γ
+                𝑝[i, j] = _𝑝
+            end
+            if threadmax > 1
+                Threads.threadid() == 1 && (threadlog += Threads.nthreads())%10 == 0 && @logprogress threadlog/threadmax
+            end
         end
     end
     return γ, 𝑝
