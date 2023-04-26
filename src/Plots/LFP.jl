@@ -4,6 +4,7 @@ using Statistics
 using DSP
 using StatsBase
 using IntervalSets
+import AllenNeuropixelsBase as ANB
 
 function slidingcarpet(x, y, Z; resolution=(800, 800), kwargs...)
     # x is a vector of times labelling columns of Z, , y is a vector labelling rows of Z and Z is the matrix of time series data
@@ -138,7 +139,7 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, 
     psd = hcat([p.power for p ∈ P]...)
     psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
     psd = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
-    depths = AN.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
+    depths = ANB.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
     fig = traces(𝑓, Array(psd); tracez=-depths, xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", clabel="Depth", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
     if !isnothing(slope)
         _psd = psd[Dim{:frequency}(DD.Between(slope...))]
@@ -164,7 +165,7 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector; slopecolor=nothi
         psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
         A[x] = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
     end
-    depths =[AN.getchanneldepths(session, probeids[x], collect(dims(A[x], :channel))) for x ∈ 1:length(probeids)]
+    depths =[ANB.getchanneldepths(session, probeids[x], collect(dims(A[x], :channel))) for x ∈ 1:length(probeids)]
     A = hcat(A...)
     depths = vcat(depths...)
     # idxs = .!isnan.(depths)
