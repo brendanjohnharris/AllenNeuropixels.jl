@@ -18,7 +18,6 @@ Base.@kwdef mutable struct Burst <: AbstractBurst
     significance = nothing
     phasemask::Union{Nothing, LogWaveletMatrix}=nothing
 end
-
 Burst(mask, thresh; kwargs...) = Burst(; mask, thresh, kwargs...)
 Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
 
@@ -62,7 +61,6 @@ end
 # channel(B::Burst) = hasfield(B.mask.metadata, :channel) ? B.mask.metadata[:channel] : nothing
 # probeid(B::Burst) = hasfield(B.mask.metadata, :probeid) ? B.mask.metadata[:probeid] : nothing
 function _burstsubset(B, σ)
-    channel = getchannel(B)
     isnothing(channel) && @error "Burst has no associated LFP"
     ts = interval(B, σ)
     return channel, ts
