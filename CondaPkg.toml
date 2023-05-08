@@ -1,5 +1,4 @@
 [deps]
-aiohttp = ""
 statsmodels = "<=0.13.0"
 dandi = ""
 pygments = ">=2.4.1"

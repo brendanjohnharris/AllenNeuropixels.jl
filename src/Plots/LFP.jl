@@ -133,7 +133,7 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope=nothing, 
     # 𝑍 = rfft(Array(LFP), 1)
     # A = abs.(𝑍)
     # psd = (Δt/length(times))*A.^2
-    fp = x -> welch_pgram(x, div(length(x), 1000), div(div(length(x), 1000), 2); fs=1/Δt, window=nothing)
+    fp = x -> welch_pgram(x, div(length(x), 500), div(div(length(x), 500), 2); fs=1/Δt, window=nothing)
     P = [fp(Array(x)) for x ∈ eachcol(LFP)]
     𝑓 = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p ∈ P]...)

@@ -26,7 +26,6 @@ include("./Windows.jl")
 include("./LFP.jl")
 include("./SpikeBand.jl")
 include("./Bursts.jl")
-include("./SpikeBand.jl")
 include("./SpikeCluster.jl")
 
 end
