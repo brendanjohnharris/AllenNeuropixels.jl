@@ -47,13 +47,12 @@ function predictionerror(x, y, M::CCA; metric=R²)
     return metric(x, x̂), metric(y, ŷ)
 end
 
-
 """
 Calculate the prediction error of variables 1 to variables 2 and vice versa.
-The output contains prediction errors as (x->y, y->x).
+The output contains prediction errors.
 If used with spike matrices probably want to transpose those
 """
-function predictionerror(x, y; metric=R², model=MultivariateStats.CCA, kwargs...)
+function predictionerror(x, y; metric=R², model=MultivariateStats.CCA, maxdim=min(size(x, 1), size(y, 1)), kwargs...)
     x = collect(x)
     y = collect(y)
     N = size(x, 2)
@@ -64,8 +63,14 @@ function predictionerror(x, y; metric=R², model=MultivariateStats.CCA, kwargs..
     yₜ = y[:, iₜ]
     x = x[:, .!iₜ]
     y = y[:, .!iₜ]
-    N = min(size(x, 1), size(y, 1))
-    Δ = [predictionerror(x, y, fit(model, x, y; outdim=n, kwargs...); metric) for n in 1:N]
-    display(Δ)
+
+    if model == MultivariateStats.CCA
+        Δ = [predictionerror(x, y, fit(model, x, y; outdim=n, kwargs...); metric) for n in 1:maxdim]
+    else
+        Δ = [
+            (metric(xₜ, predict(fit(model, y, x; r=n, kwargs...), yₜ)), # bckwd
+            metric(yₜ, predict(fit(model, x, y; r=n, kwargs...), xₜ)) # fwd
+            ) for n in 1:maxdim]
+    end
     return first.(Δ), last.(Δ)
 end
