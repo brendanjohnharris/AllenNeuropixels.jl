@@ -18,7 +18,6 @@ Base.@kwdef mutable struct Burst <: AbstractBurst
     significance = nothing
     phasemask::Union{Nothing, LogWaveletMatrix}=nothing
 end
-
 Burst(mask, thresh; kwargs...) = Burst(; mask, thresh, kwargs...)
 Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
 
