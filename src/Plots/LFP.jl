@@ -99,7 +99,7 @@ function powerlawfit(_psd::AN.PSDMatrix)
 end
 
 
-function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), fs=nothing, N=1000, slopecolor=:crimson, kwargs...)
+function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([5, 1e-5]), fs=nothing, N=500, slopecolor=:crimson, kwargs...)
     times = collect(dims(LFP, Ti))
     if isnothing(fs)
         Δt = times[2] - times[1]
@@ -113,7 +113,7 @@ function plotLFPspectra(LFP::AbstractDimArray; slope=nothing, position=Point2f([
     psd = hcat([p.power for p ∈ P]...)
     psd = psd./(sum(psd, dims=1).*(𝑓[2] - 𝑓[1]))
     psd = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
-    fig = traces(𝑓, Array(psd); xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", smooth=1, yscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
+    fig = traces(𝑓, Array(psd); xlabel="𝑓 (Hz)", ylabel="Ŝ", title="Normalised power spectral density", smooth=1, yscale=Makie.log10, xscale=Makie.log10, doaxis=false, domean=false, yminorgridvisible=false, kwargs...)
     if !isnothing(slope)
         _psd = psd[Dim{:frequency}(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
@@ -155,7 +155,7 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector; slopecolor=nothi
     times = collect(dims(LFP[1], Ti))
     Δt = times[2] - times[1]
     @assert all(Δt .≈ diff(times))
-    fp = x -> welch_pgram(x, div(length(x), 1000), div(div(length(x), 1000), 2); fs=1/Δt, window=nothing)
+    fp = x -> welch_pgram(x, div(length(x), 200), div(div(length(x), 200), 2); fs=1/Δt, window=nothing)
     A = Vector(undef, length(LFP))
     P = fp(Array(LFP[1][:, 1]))
     𝑓 = P[1].freq # Should be pretty much the same for all channels?

@@ -129,7 +129,10 @@ function threshold(res, thresh, method)
     if length(method) == 2 # A tuple of (method, surrogate_res)
         sres = last(method)
         sres = convert(LogWaveletMatrix, sres)
-        res = sres[Ti(ClosedInterval(extrema(dims(res)[1])...)), Dim{:logfrequency}(ClosedInterval(extrema(dims(res)[2])...))]
+        dt = step(dims(res, Ti))
+        tilims = extrema(dims(res)[1])
+        tilims[2] += dt/2 # Slightly widen to avoid floting point issues with the indices
+        res = sres[Ti(ClosedInterval(tilims...)), Dim{:logfrequency}(ClosedInterval(extrema(dims(res)[2])...))]
         method = first(method)
     end
     if method == :percentile
