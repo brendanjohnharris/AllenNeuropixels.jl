@@ -114,6 +114,7 @@ end
 filternbg! = filtergammabursts!
 
 function filterbursts!(B::BurstVector; pass)
+    pass = Interval(pass...)
     filter!(b->peakfreq(b) ∈ pass, B)
 end
 
