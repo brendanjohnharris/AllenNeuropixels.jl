@@ -131,8 +131,9 @@ function threshold(res, thresh, method)
         sres = last(method)
         sres = convert(LogWaveletMatrix, sres)
         dt = step(dims(res, Ti))
-        tilims = extrema(dims(res)[1])
-        tilims[2] += dt/2 # Slightly widen to avoid floting point issues with the indices
+        tilims = collect(extrema(dims(res)[1]))
+        tilims[2] += dt/4 # Slightly widen to avoid floting point issues with the indices
+        tilims[1] -= dt/4 # Slightly widen to avoid floting point issues with the indices
         res = sres[Ti(ClosedInterval(tilims...)), Dim{:logfrequency}(ClosedInterval(extrema(dims(res)[2])...))]
         method = first(method)
     end
@@ -626,17 +627,23 @@ function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     phis = phi[Ti(Near(s))]
     return phis
 end
+
 function pairwisephaseconsistency(x::AbstractVector) # Eq. 14 of Vinck 2010
-    x = vec(x)
+    x = collect(x)
     N = length(x)
     f(ϕ, ω) = cos(ϕ)*cos(ω) + sin(ϕ)*sin(ω) # Dot product between unit vectors with given phases
+    f(a) = f(a...)
     Δ = 0
-    for i = 1:N-1
-        for j = i+1:N
-            Δ += f(x[i], x[j])
-        end
+    Threads.@threads for i = 1:N-1
+        Δ += sum(f.(x[i], x[i+1:end]))
     end
+    # Δ = (sum(f.(b)) - N)/2 # -N to remove the diagonal of 1's, /2 to remove lower triangle
     return (2/(N*(N-1)))*Δ
+end
+function pairwisephaseconsistency(x::AbstractVector, y::AbstractVector)
+    @assert length(x) == length(y)
+    z = y .- x
+    return pairwisephaseconsistency(z)
 end
 
 """
@@ -681,7 +688,7 @@ end
 """
 The phase-locking index for bursts and an LFP signal
 """
-function _phaselockingindex(B::BurstVector, s::LFPVector, f::Number; centre=true, n_bursts=10)
+function _phaselockingindex(B::BurstVector, s::LFPVector, f::Number; centre=true, n_bursts=5)
     # First, get phases for every burst
     ts = interval.(B)
     phis = phasemask.(B)
@@ -715,14 +722,23 @@ function phaselockingindex(B::BurstVector, s::AbstractVector, f::Number)
     return (γ, 𝑝)
 end
 
-function phaselockingindex(B::BurstVector, s::LFPVector, f::Number)
-    phis = _phaselockingindex(B, s, f)
+function phaselockingindex(LFP::LFPVector, s::AbstractVector; kwargs...)
+    phis = LFP |> hilbert .|> angle
+    phis = phis[Ti(Near(s))]
+    γ = pairwisephaseconsistency(phis)
+    𝑝 = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(collect(phis)))
+    return (γ, 𝑝)
+end
+
+function phaselockingindex(B::BurstVector, s::LFPVector, f::Number; kwargs...)
+    phis = _phaselockingindex(B, s, f; kwargs...)
     γ = pairwisephaseconsistency(phis)
     𝑝 = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(phis))
     return (γ, 𝑝)
 end
 
-function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number)
+
+function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number; kwargs...)
     channels = keys(ℬ) |> collect
     units = keys(Sp) |> collect
     γ = DimArray(collect(zeros(length(channels), length(units))), (Dim{:channel}(channels), Dim{:unit}(units)))
@@ -730,7 +746,7 @@ function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number)
     Threads.@threads for (i, b) in collect(enumerate(values(ℬ)))
         for (j, s) in enumerate(values(Sp))
             # @info "Calculating ($i, $j) of $(size(γ))"
-            _γ, _𝑝 = phaselockingindex(b, s, f)
+            _γ, _𝑝 = phaselockingindex(b, s, f; kwargs...)
             γ[i, j] = _γ
             𝑝[i, j] = _𝑝
         end
@@ -738,7 +754,7 @@ function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number)
     return γ, 𝑝
 end
 
-function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where T, f::Number)
+function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where T, f::Number; kwargs...)
     channels = keys(ℬ) |> collect
     units = keys(phi) |> collect
     γ = DimArray(collect(zeros(length(channels), length(units))), (Dim{:channel}(channels), Dim{:channel}(units)))
@@ -748,7 +764,7 @@ function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where T, f:
         Threads.@threads for (i, b) in collect(enumerate(values(ℬ)))
             for (j, s) in enumerate(values(phi))
                 # @info "Calculating ($i, $j) of $(size(γ))"
-                _γ, _𝑝 = phaselockingindex(b, s[:, Near(log(f))], f)
+                _γ, _𝑝 = phaselockingindex(b, s[:, Near(log(f))], f; kwargs...)
                 γ[i, j] = _γ
                 𝑝[i, j] = _𝑝
             end
@@ -758,6 +774,18 @@ function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where T, f:
         end
     end
     return γ, 𝑝
+end
+
+function _phaselockingindex(x::LFPVector, y::LFPVector; pass=nothing)
+    isnothing(pass) || (x, y = AN.bandpass.((x, y); pass))
+    ϕ_x = x |> hilbert .|> angle
+    ϕ_y = y |> hilbert .|> angle
+    return ϕ_y .- ϕ_x
+end
+
+function phaselockingindex(x::LFPVector, y::LFPVector; pass=nothing)
+    phis = _phaselockingindex(x, y; pass)
+    γ = pairwisephaseconsistency(phis)
 end
 
 
