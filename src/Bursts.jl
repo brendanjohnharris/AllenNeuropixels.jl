@@ -633,12 +633,12 @@ function pairwisephaseconsistency(x::AbstractVector) # Eq. 14 of Vinck 2010
     N = length(x)
     f(ϕ, ω) = cos(ϕ)*cos(ω) + sin(ϕ)*sin(ω) # Dot product between unit vectors with given phases
     f(a) = f(a...)
-    Δ = 0
+    Δ = zeros(N-1)
     Threads.@threads for i = 1:N-1
-        Δ += sum(f.(x[i], x[i+1:end]))
+        Δ[i] = sum(f.(x[i], x[i+1:end]))
     end
     # Δ = (sum(f.(b)) - N)/2 # -N to remove the diagonal of 1's, /2 to remove lower triangle
-    return (2/(N*(N-1)))*Δ
+    return (2/(N*(N-1)))*sum(Δ)
 end
 function pairwisephaseconsistency(x::AbstractVector, y::AbstractVector)
     @assert length(x) == length(y)
@@ -777,7 +777,7 @@ function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where T, f:
 end
 
 function _phaselockingindex(x::LFPVector, y::LFPVector; pass=nothing)
-    isnothing(pass) || (x, y = AN.bandpass.((x, y); pass))
+    isnothing(pass) || (x, y = bandpass.((x, y); pass))
     ϕ_x = x |> hilbert .|> angle
     ϕ_y = y |> hilbert .|> angle
     return ϕ_y .- ϕ_x
@@ -786,6 +786,8 @@ end
 function phaselockingindex(x::LFPVector, y::LFPVector; pass=nothing)
     phis = _phaselockingindex(x, y; pass)
     γ = pairwisephaseconsistency(phis)
+    𝑝 = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(phis))
+    return γ, 𝑝
 end
 
 
