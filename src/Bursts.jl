@@ -731,7 +731,7 @@ function phaselockingindex(LFP::LFPVector, s::AbstractVector; kwargs...)
 end
 
 function phaselockingindex(B::BurstVector, s::LFPVector, f::Number; kwargs...)
-    phis = _phaselockingindex(B, s, f; kwargs...)
+    phis = collect(_phaselockingindex(B, s, f; kwargs...))
     γ = pairwisephaseconsistency(phis)
     𝑝 = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(phis))
     return (γ, 𝑝)
