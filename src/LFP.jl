@@ -283,14 +283,14 @@ wavelettransform(x::LFPVector, args...; kwargs...) = abs.(_wavelettransform(x, a
 
 function fooof(p::LogWaveletMatrix, freqrange=[1.0, 300.0])
     ffreqs = 10.0.^collect(dims(p, Dim{:logfrequency}))
-    freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
+    freqrange = pylist([freqrange[1], freqrange[2]])
     spectrum = vec(collect(p))
-    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 50.0]"o, max_n_peaks=10, aperiodic_mode="knee", peak_threshold=0.5)
+    fm = PyFOOOF.FOOOF(peak_width_limits=pylist([0.5, 50.0]), max_n_peaks=10, aperiodic_mode="knee", peak_threshold=0.5)
     # if fm.aperiodic_params_[2] < 0.0
-    #     fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 20.0]"o, max_n_peaks=4, aperiodic_mode="fixed")
+    #     fm = PyFOOOF.FOOOF(peak_width_limits=[0.5, 20.0], max_n_peaks=4, aperiodic_mode="fixed")
     # end
     # fm.report(freqs, spectrum, freqrange)
-    fm.add_data(ffreqs, spectrum, freqrange)
+    fm.add_data(Py(ffreqs).to_numpy(), Py(spectrum).to_numpy(), freqrange)
     fm.fit()
     return fm
 end
@@ -301,7 +301,7 @@ function logaperiodicfit(p::LogWaveletMatrix, freqrange=[1.0, 300.0], args...; d
         p = fm.plot(; plt_log=true, file_name=doplot, save_fig=true)
     end
     # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
-    b, k, χ = fm.aperiodic_params_
+    b, k, χ = pyconvert.((Float64,), fm.aperiodic_params_)
     k = max(k, 0.01)
     # b, k, χ = length(ps) == 3 ? ps : (ps[1], 0.0, ps[2])
     L = f -> 10.0.^(b - log10(k + (10.0^(f))^χ)) # Expects log frequency values
@@ -352,12 +352,12 @@ end
 import AllenNeuropixelsBase.PSDVector, AllenNeuropixelsBase.PSDMatrix
 function aperiodicfit(psd::PSDVector, freqrange=[1.0, 300.0])
     ffreqs = dims(psd, Dim{:frequency}) |> collect
-    freqrange = py"[$(freqrange[1]), $(freqrange[2])]"o
+    freqrange = pylist([(freqrange[1]), (freqrange[2])])
     spectrum = vec(collect(psd))
-    fm = PyFOOOF.FOOOF(peak_width_limits=py"[0.5, 50.0]"o, max_n_peaks=10, aperiodic_mode="knee", peak_threshold=0.5)
-    fm.add_data(ffreqs, spectrum, freqrange)
+    fm = PyFOOOF.FOOOF(peak_width_limits=pylist([0.5, 50.0]), max_n_peaks=10, aperiodic_mode="knee", peak_threshold=0.5)
+    fm.add_data(Py(ffreqs).to_numpy(), Py(spectrum).to_numpy(), freqrange)
     fm.fit()
-    b, k, χ = fm.aperiodic_params_
+    b, k, χ = pyconvert.((Float64,), fm.aperiodic_params_)
     k = max(k, 0.01)
     L = f -> 10.0.^(b - log10(k + (f)^χ))
 end

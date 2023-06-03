@@ -1,5 +1,5 @@
 using Makie
-using RPRMakie
+using WGLMakie
 using FileIO
 using Makie.Colors
 import AllenNeuropixels as AN
@@ -24,21 +24,28 @@ coords[3] = .-coords[3]
 
 ## RPR stuff
 radiance = 500
-lights = [EnvironmentLight(1.0, load(RPR.assetpath("studio026.exr"))),
+lights = [EnvironmentLight(1.0, load(RPR.assetpath("studio032.exr"))),
             PointLight(Vec3f(10), RGBf(radiance, radiance, radiance * 1.1))]
-fig = Figure(; resolution=(1500, 700));
-ax = LScene(fig[1, 1]; show_axis=false, scenekw=(; lights=lights))
-screen = RPRMakie.Screen(ax.scene; plugin=RPR.Northstar, iterations=400)
-glass = RPR.Glass(matsys)
-chrome = RPR.Chrome(matsys)
-gold = RPR.SurfaceGoldX(matsys)
-matsys = screen.matsys
+
+fig = Figure();
+radiance = 10000
+lights = [
+    EnvironmentLight(1, Makie.FileIO.load(RPR.assetpath("studio027.exr"))),
+    PointLight(Vec3f(10, 10, 10), RGBf(radiance, radiance, radiance))
+]
+ax = LScene(fig[1, 1]; show_axis = false, scenekw=(lights=lights,))
+screen = RPRMakie.Screen(ax.scene; iterations=10, plugin=RPR.Northstar);
+matsys = screen.matsys;
+context = screen.context;
+mat = RPR.Plastic(matsys)
 cam = cameracontrols(ax.scene)
-cam.eyeposition[] = Vec3f(-0.3, -5.5, 0.9)
+cam.eyeposition[] = Vec3f(1.5, 0, 0)
 cam.lookat[] = Vec3f(0, 0, 0)
 cam.upvector[] = Vec3f(0, 0, 1)
-cam.fov[] = 35
-mesh!(ax, load(Makie.assetpath("matball_floor.obj")); color=:white)
+cam.fov[] = 50
+mesh!(ax, Sphere(Point3f(0), 1), material=mat)
+screen
+
 # image = colorbuffer(screen)
 # save("materials.png", image)
 
@@ -56,8 +63,8 @@ if ids isa Symbol
     else
         @error "`ids` keyword argument not valid "
     end
-    t = ANB.getstructuretree()
-    D = t.get_id_acronym_map()
+    t = ANB.getstructuretree() # Fucked
+    D = t.get_id_acronym_map() |> Dict
     ids = getindex.((D,), anns)
 end
 

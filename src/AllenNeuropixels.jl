@@ -6,7 +6,6 @@ using DataFrames
 using Dates
 using TimeZones
 using CSV
-using PyCall
 using Requires
 using IntervalSets
 using Reexport
