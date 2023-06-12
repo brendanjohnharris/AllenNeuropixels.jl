@@ -298,6 +298,14 @@ end
 plotfit(res::AN.LogWaveletMatrix, B::AN.BurstVector; kwargs...) = (ax = Axis(Figure()[1, 1]); plotfit!(ax, res, B; kwargs...); current_figure())
 
 
+function _plotfit!(ax::Axis, b::AN.Burst; downsample=1, contourcolor=(:cornflowerblue, 0.4), boxcolor=:crimson)
+    t, freqs, res = decompose(b.mask)
+    contour!(ax, t[1:downsample:end], freqs, res[1:downsample:end, :]; color=contourcolor, linewidth=2)
+    vs = collect(Iterators.product((b |> AN.mask |> dims .|> extrema)...))
+    poly!(ax, Point2f.(vs[[1, 2, 4, 3]]), color = Makie.RGBA(0, 0, 0, 0), strokecolor = boxcolor, strokewidth = 4)
+end
+
+
 
 function compareburststatistics(B::AN.BurstVector, Bs::AN.BurstVector, f::Function, label1="Real", label2="Surrogate"; boundary=nothing, kwargs...)
     fig = Figure()
