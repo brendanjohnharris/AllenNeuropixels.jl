@@ -35,7 +35,7 @@ end
 # end
 
 
-function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor=:crimson, colormap=nothing, linealpha =0.3, label="", kwargs...)
+function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor=:crimson, colormap=nothing, linealpha =0.3, label="", markersize=10, linewidth=Makie.Automatic(), kwargs...)
     sims = zeros(length(Y))
     ts = ClosedInterval(extrema(dims(X, Ti))...)
     Y = deepcopy(Y)
@@ -49,9 +49,9 @@ function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; marker=:vline, linecolor
     times = collect(values(Y))[idxs]
     times = times[length.(times) .> 0]
     times = Vector{Vector}(times)
-    p = spy!(ax, times; colormap, marker)
+    p = spy!(ax, times; colormap, marker, markersize)
     [translate!(Accum, _p, (0, 0, 200)) for _p in p]
-    lines!(ax, dims(X, Ti)|>collect, collect(length(times).*(X.-minimum(X))./(maximum(X) - minimum(X))); color=(linecolor, linealpha), label)
+    lines!(ax, dims(X, Ti)|>collect, collect(length(times).*(X.-minimum(X))./(maximum(X) - minimum(X))); color=(linecolor, linealpha), label, linewidth)
     ax.xlabel = "Time (s)"
     ax.ylabel = "Unit"
 end
