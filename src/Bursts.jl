@@ -790,6 +790,21 @@ function phaselockingindex(x::LFPVector, y::LFPVector; pass=nothing)
     return γ, 𝑝
 end
 
+function phaselockingindex(x::LFPVector, y::LFPVector, N::Number; pass=nothing)
+    @assert length(x) == length(y)
+    idxs = 1:N:length(x)
+    X = [@view(x[i:i+N-1]) for i in idxs if i+N-1 ≤ length(x)]
+    Y = [@view(y[i:i+N-1]) for i in idxs if i+N-1 ≤ length(y)]
+    γ = zeros(length(X))
+    𝑝 = zeros(length(X))
+    for i ∈ eachindex(γ)
+        phis = collect(_phaselockingindex(X[i], Y[i]; pass))
+        γ[i] = pairwisephaseconsistency(phis)
+        𝑝[i] = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(phis))
+    end
+    return γ, 𝑝
+end
+
 
 
 # * We want to detect durations where the theta bursts occur all across the channels
