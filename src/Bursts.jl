@@ -210,6 +210,7 @@ function widen(x, δ=0.5; upperbound=[Inf, Inf])
     return [max.(1, floor.(Int, x[1] .- δ.*Δ)), min.(upperbound, ceil.(Int, x[2] .+ δ.*Δ))]
 end
 
+
 function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=3, boundingstretch=0.5, method=:iqr, areacutoff=1, dofit=false, filter=nothing)
     # @info "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
@@ -233,6 +234,9 @@ function _detectbursts(res::LogWaveletMatrix; thresh=4, curvaturethresh=3, bound
     masks = [res[b[1][1]:b[2][1], b[1][2]:b[2][2]] for b in bb]
     B = Burst.(masks, ((method, thresh, curvaturethresh),), peaks)[idxs]
     isnothing(filter) || filter(B)
+
+    B = [b for b in B if all(size(b.mask) .> 1)]
+
     if dofit
         @info "Fitting bursts"
         fit!(B)
@@ -341,6 +345,7 @@ function fit!(ℬ::AbstractVector{<:AbstractBurst})
             try
                 fit!(B)
             catch e
+                @warn e
                 @warn "Could not fit a burst. Skipping"
             end
             Threads.threadid() == 1 && (threadlog += 1)%1 == 0 && @logprogress threadlog/threadmax
