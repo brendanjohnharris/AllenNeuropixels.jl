@@ -475,3 +475,36 @@ function mutualinfo(x, y, est; base = 2, α = 1)
     XY = genentropy(Dataset(x, y), est; base, α)
     return X + Y - XY
 end
+
+
+
+function _extracttheta(session, stimulus, structures; inbrain=200, times=nothing, trail=:offset, thetathresh=0.75, durprop=0.5)
+
+    probeids = getprobes(session, structures)
+
+    Y = stimuluspartition(session, probeids, structures, stimulus; inbrain, times, trail)
+
+    τ = 50 # Approx min of global AMI
+
+    durprop # Events tend to last for half of the flashes stimulus interval. Set this to only take the first 0.5 of the presentation TS
+
+    F, t = thetafeature(Y; τ, durprop)
+    F̄ = [[mean(x) for x in X] for X in F]
+    t̄ = [[mean(x) for x in X] for X in t]
+
+    # Extract the presentations with a thetafeature above 0.5 in VISp
+    idxs = F̄[1] .> thetathresh
+    f = [F̄[i][idxs] for i in eachindex(F̄)]
+    Y = [Y[i][idxs] for i in eachindex(Y)]
+    Y = [[x[1:round(Int, size(x, 1)*durprop), :] for x in y] for y in Y]
+    t = [t̄[i][idxs] for i in eachindex(t̄)]
+
+    return Y, f
+end
+_extracttheta(session::Int, args...; kwargs...) = _extracttheta(Session(session), args...; kwargs...)
+
+function extracttheta(session, stimulus, structures; kwargs...)
+    Y, f = _extracttheta(session, stimulus, structures; kwargs...)
+    Y = catlfp.(Y)
+end
+extracttheta(session::Int, args...; kwargs...) = extracttheta(Session(session), args...; kwargs...)
