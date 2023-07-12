@@ -538,9 +538,13 @@ function extracttheta(session, stimulus, structures; kwargs...)
 end
 extracttheta(session::Int, args...; kwargs...) = extracttheta(Session(session), args...; kwargs...)
 function extracttheta(params::NamedTuple, args...; kwargs...) # Assume the pair is "VISp", "VISl"
-    structures = ["VISp", "VISl"]
-    x = extracttheta(params[:sessionid], params[:stimulus], structures, args...; kwargs...)
-    structure = params[:structure]
-    idx = findfirst(structures .== structure)
-    return x[idx]
+    if params[:stimulus] == "flashes"
+        structures = ["VISp", "VISl"]
+        x = extracttheta(params[:sessionid], params[:stimulus], structures, args...; kwargs...)
+        structure = params[:structure]
+        idx = findfirst(structures .== structure)
+        return x[idx]
+    else
+        return formatlfp(; params...)
+    end
 end
