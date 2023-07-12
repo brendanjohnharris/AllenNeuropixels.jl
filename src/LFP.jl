@@ -477,8 +477,36 @@ function mutualinfo(x, y, est; base = 2, α = 1)
 end
 
 
+function phasematch(a::Tuple, b::Tuple; tol=0.05) # a = (LFP1, PHI1)
+    x, xp = a
+    y, yp = b
+    i = findfirst(0 .< (yp .- xp[end]) .< tol) # Phase is always increasing
+    if isnothing(i)
+        _, ix = findmin(abs.(yp .- xp[end]))
+        ss = (yp .- xp[end])
+        @warn "No matching phases found. b is of length $(length(b[1])). The final phase of a is $(xp[end]). The extrema of phases in b is $(extrema(yp)). The smallest difference in phase is $(ss[ix]), at index $ix."
+        return a
+    else
+        x = vcat(x, y[i:end])
+        xp = vcat(xp, yp[i:end])
+    end
+    return (x, xp)
+end
 
-function _extracttheta(session, stimulus, structures; inbrain=200, times=nothing, trail=:offset, thetathresh=0.75, durprop=0.5)
+function phasematch(a::AbstractVector, b::AbstractVector, pass=nothing; kwargs...)
+    if !isnothing(pass)
+        a = bandpass(deepcopy(a); pass)
+        b = bandpass(deepcopy(b); pass)
+    end
+    pha = hilbert(a) .|> angle
+    phb = hilbert(b) .|> angle
+    return phasematch((a, pha), (b, phb); kwargs...)
+end
+
+# phasematch(ab::Tuple; kwargs...) = phasematch(ab[1], ab[2], pass=nothing; kwargs...)
+
+
+function _extracttheta(session, stimulus, structures; inbrain=200, times=nothing, trail=:offset, thetathresh=0.6, durprop=0.5)
 
     probeids = getprobes(session, structures)
 
@@ -505,6 +533,7 @@ _extracttheta(session::Int, args...; kwargs...) = _extracttheta(Session(session)
 
 function extracttheta(session, stimulus, structures; kwargs...)
     Y, f = _extracttheta(session, stimulus, structures; kwargs...)
+    # Y = reduce.((phasematch,), Y; pass=[1, 10])
     Y = catlfp.(Y)
 end
 extracttheta(session::Int, args...; kwargs...) = extracttheta(Session(session), args...; kwargs...)
