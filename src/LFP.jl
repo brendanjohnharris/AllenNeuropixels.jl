@@ -537,3 +537,10 @@ function extracttheta(session, stimulus, structures; kwargs...)
     Y = catlfp.(Y)
 end
 extracttheta(session::Int, args...; kwargs...) = extracttheta(Session(session), args...; kwargs...)
+function extracttheta(params::NamedTuple, args...; kwargs...) # Assume the pair is "VISp", "VISl"
+    structures = ["VISp", "VISl"]
+    x = extracttheta(params[:sessionid], params[:stimulus], structures, args...; kwargs...)
+    structure = params[:structure]
+    idx = findfirst(structures .== structure)
+    return x[idx]
+end
