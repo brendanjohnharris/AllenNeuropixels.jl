@@ -26,6 +26,41 @@ function lfpspikesimilarity(session, probeid, X::LFPMatrix, Y::Dict; normalize=i
     return Dict(units .=> sims)
 end
 
+function pairspikelfp(session, structure, spikes, X::LFPMatrix)
+    probeid = getprobe(session, structure)
+    units = keys(spikes) |> collect
+    spikes = values(spikes) |> collect
+    idxs = AllenNeuropixelsBase.isvalid(session, units)
+    units = units[idxs]
+    spikes = spikes[idxs]
+    # * First, match up the units to their nearest LFPs
+    depths = getchanneldepths(session, probeid, X)
+    idxs = sortperm(depths)
+    X = X[:, idxs]
+    depths = depths[idxs]
+    X = DimArray(X, (dims(X, Ti), Dim{:depth}(depths)))
+    unitdepths = getunitdepths(session, probeid, units)
+    X = X[Dim{:depth}(Near(unitdepths))] # Sorted in order of spikes
+    int = Interval(extrema(dims(X, Ti))...)
+    spikes = [s[s .∈ (int,)] for s in spikes]
+    idxs = .!isempty.(spikes)
+    spikes = spikes[idxs]
+    units = units[idxs]
+    X = X[:, idxs]
+    return (units, spikes, X)
+end
+
+function pairspikelfp(session, structure::String, X::LFPMatrix)
+    spikes = getspiketimes(session, structure)
+    pairspikelfp(spikes, X)
+end
+
+function pairspikelfp(params::NamedTuple, args...)
+    session = Session(params[:sessionid])
+    structure = params[:structure]
+    return pairspikelfp(session, structure, args...)
+end
+
 
 mape(x, y) = sum(1.0.-abs.((x .- y)./x))/length(x)
 sse(x, y) = sum((x .- y).^2)

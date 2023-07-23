@@ -531,10 +531,15 @@ function _extracttheta(session, stimulus, structures; inbrain=200, times=nothing
 end
 _extracttheta(session::Int, args...; kwargs...) = _extracttheta(Session(session), args...; kwargs...)
 
-function extracttheta(session, stimulus, structures; kwargs...)
+function extracttheta(session, stimulus, structures; cattimes=false, kwargs...)
     Y, f = _extracttheta(session, stimulus, structures; kwargs...)
     # Y = reduce.((phasematch,), Y; pass=[1, 10])
-    Y = catlfp.(Y)
+    if cattimes
+        display(Y)
+        Y = [cat(y...; dims=Ti) for y in Y]
+    else
+        Y = catlfp.(Y)
+    end
 end
 extracttheta(session::Int, args...; kwargs...) = extracttheta(Session(session), args...; kwargs...)
 function extracttheta(params::NamedTuple, args...; kwargs...) # Assume the pair is "VISp", "VISl"
