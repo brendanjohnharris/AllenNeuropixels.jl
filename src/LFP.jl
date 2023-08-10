@@ -330,7 +330,7 @@ function fooofedwavelet!(res::LogWaveletMatrix, freqrange=[1.0, 300.0]; kwargs..
     # Makie.lines(ffreqs[10:end], psd[:][10:end].-L.(ffreqs)[10:end], color=:cornflowerblue)
     l = DimArray(L.(ffreqs), (Dim{:logfrequency}(ffreqs),))
     fmin = log10(minimum(freqrange))
-    l[ffreqs .< fmin] = psd[ffreqs .< fmin] # Ensures no funky behaviour outside of the fit bounds
+    l[ffreqs .< fmin] = psd[ffreqs .< fmin] # Ensures no funky behavior outside of the fit bounds
     for r in axes(res, Ti)
         res[Ti(r)] .= res[Ti(r)] - l
     end
