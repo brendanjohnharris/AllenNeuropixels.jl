@@ -535,7 +535,6 @@ function extracttheta(session, stimulus, structures; cattimes=false, kwargs...)
     Y, f = _extracttheta(session, stimulus, structures; kwargs...)
     # Y = reduce.((phasematch,), Y; pass=[1, 10])
     if cattimes
-        display(Y)
         Y = [cat(y...; dims=Ti) for y in Y]
     else
         Y = catlfp.(Y)
