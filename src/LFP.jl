@@ -495,11 +495,27 @@ end
 
 function phasematch(a::AbstractVector, b::AbstractVector, pass=nothing; kwargs...)
     if !isnothing(pass)
-        a = bandpass(deepcopy(a); pass)
-        b = bandpass(deepcopy(b); pass)
+        _a = bandpass(deepcopy(a); pass)
+        _b = bandpass(deepcopy(b); pass)
+    else
+        _a = deepcopy(a)
+        _b = deepcopy(b)
     end
-    pha = hilbert(a) .|> angle
-    phb = hilbert(b) .|> angle
+    pha = hilbert(_a) .|> angle
+    phb = hilbert(_b) .|> angle
+    return phasematch((a, pha), (b, phb); kwargs...)
+end
+
+function phasematch(a::Vector, b::Vector, pass=nothing; kwargs...)
+    if !isnothing(pass)
+        _a = bandpass(deepcopy(a); pass)
+        _b = bandpass(deepcopy(b); pass)
+    else
+        _a = deepcopy(a)
+        _b = deepcopy(b)
+    end
+    pha = hilbert(_a) .|> angle
+    phb = hilbert(_b) .|> angle
     return phasematch((a, pha), (b, phb); kwargs...)
 end
 
@@ -545,6 +561,17 @@ function extracttheta(params::NamedTuple, args...; kwargs...) # Assume the pair 
     if params[:stimulus] == "flashes"
         structures = ["VISp", "VISl"]
         x = extracttheta(params[:sessionid], params[:stimulus], structures, args...; kwargs...)
+        structure = params[:structure]
+        idx = findfirst(structures .== structure)
+        return x[idx]
+    else
+        return formatlfp(; params...)
+    end
+end
+function _extracttheta(params::NamedTuple, args...; kwargs...) # Assume the pair is "VISp", "VISl"
+    if params[:stimulus] == "flashes"
+        structures = ["VISp", "VISl"]
+        x, _ = _extracttheta(params[:sessionid], params[:stimulus], structures, args...; kwargs...)
         structure = params[:structure]
         idx = findfirst(structures .== structure)
         return x[idx]
