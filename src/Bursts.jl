@@ -634,13 +634,14 @@ function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
 end
 
 function pairwisephaseconsistency(x::AbstractVector) # Eq. 14 of Vinck 2010
-    x = collect(x)
+    # x = collect(x)
     N = length(x)
-    f(ϕ, ω) = cos(ϕ)*cos(ω) + sin(ϕ)*sin(ω) # Dot product between unit vectors with given phases
-    f(a) = f(a...)
+    # f(ϕ, ω) = cos(ϕ - ω) # cos(ϕ)*cos(ω) + sin(ϕ)*sin(ω) # Dot product between unit vectors with given phases
+    # f(a) = f(a...)
     Δ = zeros(N-1)
     Threads.@threads for i = 1:N-1
-        Δ[i] = sum(f.(x[i], x[i+1:end]))
+        δ = @views x[i] .- x[i+1:end]
+        Δ[i] = sum(cos.(δ))
     end
     # Δ = (sum(f.(b)) - N)/2 # -N to remove the diagonal of 1's, /2 to remove lower triangle
     return (2/(N*(N-1)))*sum(Δ)
