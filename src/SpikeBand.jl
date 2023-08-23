@@ -30,7 +30,7 @@ function pairspikelfp(session, structure, spikes, X::LFPMatrix)
     probeid = getprobe(session, structure)
     units = keys(spikes) |> collect
     spikes = values(spikes) |> collect
-    idxs = AllenNeuropixelsBase.isvalid(session, units)
+    idxs = AllenNeuropixelsBase.isvalidunit(session, units)
     units = units[idxs]
     spikes = spikes[idxs]
     # * First, match up the units to their nearest LFPs
