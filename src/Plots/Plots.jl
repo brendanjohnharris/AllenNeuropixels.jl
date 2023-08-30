@@ -31,7 +31,7 @@ module Plots
     Makie.convert_arguments(x::AN.LFPVector) = (dims(x, Ti)|>collect, x|>Array)
     Makie.convert_single_argument(x::AN.LFPVector) = (dims(x, Ti)|>collect, x|>Array)
 
-    GeometryBasics.decompose(x::AN.DimensionalData.AbstractDimArray) = ((dims(x).|>collect)..., x.data)
+    # GeometryBasics.decompose(x::AN.DimensionalData.AbstractDimArray) = ((dims(x).|>collect)..., x.data)
 
     # GeometryBasics.decompose(x::AN.DimensionalData.AbstractDimArray, dims...) = (getindex.((dims(x).|>collect), dims)..., x.data[dims...])
 
