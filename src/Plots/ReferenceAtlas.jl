@@ -211,8 +211,25 @@ c, p = AN.Plots.plotbrain!(ax, S; dark = false)
 """
 function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = true,
                     ids = :targets, probestyle = :meshscatter, dark = false,
-                    meshparams = (), matcap = false)
+                    meshparams = (), matcap = false, channels = nothing, markersize = 100.0)
+    if !isnothing(channels)
+        findchannels = channels
+    else
+        findchannels = nothing
+    end
     channels = AN.getchannels(S)
+    if !isnothing(findchannels)
+        function findstructure(c)
+            idxs = indexin(c, channels.id)
+            channels[idxs, :].probe_id |> unique |>
+            first
+        end
+        findchannels = Dict(findstructure.(findchannels) .=> findchannels)
+    else
+        findchannels = unique(channels.probe_id)
+        findchannels = Dict(findchannels .=> [channels[channels.probe_id .== p, :].id
+                             for p in findchannels])
+    end
     vol, info = ANB.gettemplatevolume()
 
     hemisphere = :right
@@ -222,10 +239,10 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
                       transparency = true,
                       ssao = true,
                       interpolate = true,
-                      ambient = Vec3f(0.2),
-                      specular = Vec3f(1.0),
-                      diffuse = Vec3f(0.2),
-                      shininess = 100.0, meshparams...)
+                      ambient = Vec3f(0.1),
+                      specular = Vec3f(2.0),
+                      diffuse = Vec3f(0.1),
+                      shininess = Float32(100.0), meshparams...)
     else
         meshparams = (; fxaa = true,
                       shading = true,
@@ -284,7 +301,7 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
     end
 
     # Plot the whole brain
-    id = plotbrainstructure!(ax, 997; hemisphere = :both, alpha = 0.2, meshparams...)
+    id = plotbrainstructure!(ax, 997; hemisphere = :both, alpha = 0.1, meshparams...)
 
     if dostructures
         _channels = subset(AN.getchannels(), :ecephys_probe_id => ByRow(!ismissing),
@@ -305,23 +322,26 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
         end
     end
 
-    cp = map(unique(channels.probe_id)) do probeid
-        (x, y, z) = ccftransform(AN.getprobecoordinates(S, probeid))
+    cp = map(collect(findchannels)) do fc
+        probeid = first(fc)
+        xyz = AN.getchannelcoordinates(S, probeid)
+        xyz = hcat(collect.(getindex.([xyz], last(fc)))...)
+        (x, y, z) = eachrow(ccftransform(xyz))
         _c = nothing
         if !any(length.((x, y, z)) .== 0)
             if probestyle === :meshscatter && matcap == true
                 chrome = FileIO.load(download("https://raw.githubusercontent.com/nidorx/matcaps/master/1024/E6BF3C_5A4719_977726_FCFC82.png"))
                 _c = Observable{Any}(chrome)
-                _p = meshscatter!(ax, x, y, z; meshparams..., markersize = 50.0,
+                _p = meshscatter!(ax, x, y, z; meshparams..., markersize,
                                   color = markercolor,
                                   matcap = _c, colormap = :bone)
             elseif probestyle === :meshscatter && matcap isa Matrix
                 _c = Observable{Any}(matcap)
-                _p = meshscatter!(ax, x, y, z; meshparams..., markersize = 50.0,
+                _p = meshscatter!(ax, x, y, z; meshparams..., markersize,
                                   color = markercolor, matcap = _c, colormap = :bone)
             elseif probestyle === :meshscatter
                 _c = Observable{Any}(fill(markercolor, length(x)))
-                _p = meshscatter!(ax, x, y, z; meshparams..., markersize = 50.0,
+                _p = meshscatter!(ax, x, y, z; meshparams..., markersize,
                                   color = _c, colormap = :bone)
             elseif probestyle === :lines
                 _c = Observable{Any}(fill(markercolor, length(x)))
@@ -352,7 +372,7 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
 
     ax.azimuth[] = 2.25
     ax.elevation[] = 0.2
-    return (first.(cp), last.(cp)) # The first are the color observables, the rest are the probes plots
+    return (first.(collect(findchannels)), first.(cp), last.(cp)) # The first are the color observables, the rest are the probes plots
 end
 
 function plotbrain!(ax, s::Integer, args...; kawrgs...)
