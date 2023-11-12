@@ -1,30 +1,62 @@
-# using GLMakie
-# GLMakie.activate!(ssao = true)
-using CairoMakie
+using GLMakie
+GLMakie.activate!(ssao = true)
+# using CairoMakie
 using FileIO
 import AllenNeuropixels as AN
 import AllenNeuropixels.AllenNeuropixelsBase as ANB
 using DataFrames
 import AllenNeuropixelsBase.GeometryBasics
+using Normalization
+using DimensionalData
+import AllenNeuropixels.Plots.plotbrain!
+using Foresight
+set_theme!(foresight(:dark))
 
-S = ANB.VisualBehavior.Session(1067588044)
+LFP = load(abspath(Base.find_package("AllenNeuropixels"), "..", "..", "test",
+                   "PlotBrain.jld2"))["LFP"]
+sessionid = LFP[1].metadata[:sessionid]
+channels = dims.(LFP, 2) .|> collect
 
-f = Figure(; resolution = (1920, 1080))
+S = ANB.VisualBehavior.Session(sessionid)
+
+f = Figure(; resolution = (3840, 2160), lightposition = Vec3(100000.0, 100000.0, 0.0))
 ax = Axis3(f[1, 1]; aspect = :data)
 hidedecorations!(ax)
 ax.xspinesvisible = ax.yspinesvisible = ax.zspinesvisible = false
-c, p = plotbrain!(ax, S; dark = false, probestyle = :meshscatter)
+probeids, c, p = AN.Plots.plotbrain!(ax, S; dark = false, probestyle = :meshscatter,
+                                     channels, markersize = 100.0)
 f
 
 # ? Animate activity from an LFP trace. An example is saved in PlotBrain.jld2
-LFP = joinpath(Base.find_package("AllenNeuropixels"), "test", "PlotBrain.jld2")
-framerate = 30
-timestamps = range(0, 2, step = 1 / framerate)
+framerate = 60
+ts = size(LFP[1], 1)
+(idxs = indexin(probeids, getindex.(DimensionalData.metadata.(LFP), :probeid)); X = collect.(LFP[idxs])) # Sort to probe order in plot
 
-record(fig, "time_animation.mp4", timestamps;
-       framerate = framerate) do t
-    time[] = t
+Nc = length.([_c[] for _c in c])
+
+colormap = cgrad(:binary)
+X = [MinMax(x)(x) for x in X]
+Nt = unique(size.(X, 1))
+length(Nt) > 1 && error("All provided arrays must have the same number of rows")
+Nt = first(Nt)
+record(f, "PlotBrain.mp4", 1:Nt; framerate) do t
+    @info "Rendering $t of $Nt frames"
+    for i in eachindex(c)
+        c[i][] = colormap[X[i][t, :]]
+    end
+    if t < Nt ÷ 2
+        ax.azimuth[] += 0.001
+    else
+        ax.azimuth[] -= 0.001
+    end
 end
-[_c[] = cgrad(:bone)[(1:length(_c[])) ./ length(_c[])] for _c in c]
 
 # ? Do it in a loop for GLMakie interactivity
+if false
+    map(ts) do t
+        for i in eachindex(c)
+            c[i][] = colormap[X[i][t, :]]
+        end
+    end
+    sleep(1 / fs)
+end

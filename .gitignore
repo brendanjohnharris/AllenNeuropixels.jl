@@ -39,3 +39,6 @@ Manifest.toml
 cache
 data
 old_data
+
+
+*.mp4
