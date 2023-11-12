@@ -211,7 +211,8 @@ c, p = AN.Plots.plotbrain!(ax, S; dark = false)
 """
 function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = true,
                     ids = :targets, probestyle = :meshscatter, dark = false,
-                    meshparams = (), matcap = false, channels = nothing, markersize = 100.0)
+                    meshparams = (), matcap = false, channels = nothing, markersize = 100.0,
+                    fontsize = 25.0)
     if !isnothing(channels)
         findchannels = channels
     else
@@ -243,6 +244,7 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
                       specular = Vec3f(2.0),
                       diffuse = Vec3f(0.1),
                       shininess = Float32(100.0), meshparams...)
+        rootalpha = 0.05
     else
         meshparams = (; fxaa = true,
                       shading = true,
@@ -253,6 +255,7 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
                       specular = Vec3f(0.2),
                       diffuse = Vec3f(0.2),
                       shininess = Float32(50.0), meshparams...)
+        rootalpha = 0.1
     end
     vol = Array{Float16}(vol)
     grad = cgrad(cgrad([RGBA(1.0, 1.0, 1.0, 0.0), RGBA(0.0, 0.0, 0.0, 1.0)]), 100)
@@ -301,7 +304,7 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
     end
 
     # Plot the whole brain
-    id = plotbrainstructure!(ax, 997; hemisphere = :both, alpha = 0.1, meshparams...)
+    id = plotbrainstructure!(ax, 997; hemisphere = :both, alpha = rootalpha, meshparams...)
 
     if dostructures
         _channels = subset(AN.getchannels(), :ecephys_probe_id => ByRow(!ismissing),
@@ -350,18 +353,18 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
 
             if dotext === :id
                 _, idx = findmax(y) # The highest unit
-                text!(ax, string(probeid) * "   ",
+                text!(ax, string(probeid) * "   ";
                       position = Vec3f(x[idx], y[idx], z[idx]),
-                      space = :data, fontsize = 25, align = (:right, :center),
+                      space = :data, fontsize, align = (:right, :center),
                       rotation = Quaternion((-0.3390201, 0.33899, 0.6205722, -0.620517)),
                       transparency = true, overdraw = false)
             elseif dotext === :cortex
                 structures = AN.getprobestructures(S)
                 structures = Dict(p => s[contains.(s, ["VIS"])][1] for (p, s) in structures)
                 _, idx = findmax(z) # The highest unit
-                text!(ax, structures[probeid],
+                text!(ax, structures[probeid];
                       position = Vec3f(x[idx], y[idx], z[idx] + 250),
-                      space = :data, fontsize = 25, align = (:center, :center),
+                      space = :data, fontsize, align = (:center, :center),
                       transparency = true, overdraw = false)
             end
         else

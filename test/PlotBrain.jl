@@ -10,7 +10,7 @@ using Normalization
 using DimensionalData
 import AllenNeuropixels.Plots.plotbrain!
 using Foresight
-set_theme!(foresight(:dark))
+set_theme!(foresight())
 
 LFP = load(abspath(Base.find_package("AllenNeuropixels"), "..", "..", "test",
                    "PlotBrain.jld2"))["LFP"]
@@ -19,12 +19,12 @@ channels = dims.(LFP, 2) .|> collect
 
 S = ANB.VisualBehavior.Session(sessionid)
 
-f = Figure(; resolution = (3840, 2160), lightposition = Vec3(100000.0, 100000.0, 0.0))
+f = Figure(; resolution = (1080, 720), lightposition = Vec3(100000.0, 100000.0, 0.0))
 ax = Axis3(f[1, 1]; aspect = :data)
 hidedecorations!(ax)
 ax.xspinesvisible = ax.yspinesvisible = ax.zspinesvisible = false
 probeids, c, p = AN.Plots.plotbrain!(ax, S; dark = false, probestyle = :meshscatter,
-                                     channels, markersize = 100.0)
+                                     channels, markersize = 100.0, fontsize = 15.0)
 f
 
 # ? Animate activity from an LFP trace. An example is saved in PlotBrain.jld2
@@ -35,19 +35,21 @@ ts = size(LFP[1], 1)
 Nc = length.([_c[] for _c in c])
 
 colormap = cgrad(:binary)
-X = [MinMax(x)(x) for x in X]
+X = [MinMax(x, dims = 1)(x) for x in X]
 Nt = unique(size.(X, 1))
 length(Nt) > 1 && error("All provided arrays must have the same number of rows")
 Nt = first(Nt)
-record(f, "PlotBrain.mp4", 1:Nt; framerate) do t
+record(f, "PlotBrain.gif", 1:4:Nt; framerate) do t
     @info "Rendering $t of $Nt frames"
     for i in eachindex(c)
         c[i][] = colormap[X[i][t, :]]
     end
     if t < Nt ÷ 2
         ax.azimuth[] += 0.001
+        ax.elevation[] += 0.0005
     else
         ax.azimuth[] -= 0.001
+        ax.elevation[] -= 0.0005
     end
 end
 
