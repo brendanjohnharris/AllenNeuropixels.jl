@@ -39,7 +39,7 @@ X = [MinMax(x, dims = 1)(x) for x in X]
 Nt = unique(size.(X, 1))
 length(Nt) > 1 && error("All provided arrays must have the same number of rows")
 Nt = first(Nt)
-record(f, "PlotBrain.gif", 1:4:Nt; framerate) do t
+record(f, "PlotBrain.gif", 1:Nt; framerate) do t
     @info "Rendering $t of $Nt frames"
     for i in eachindex(c)
         c[i][] = colormap[X[i][t, :]]
