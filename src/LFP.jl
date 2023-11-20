@@ -102,7 +102,7 @@ end
 """
 Calculate a feature profile for each channel in each region
 """
-function stimuluspartition(session, probeids, structures, stim; inbrain = 200,
+function stimuluspartition(session, probeids, structures, stim; inbrain = 0.0,
                            times = nothing, epoch = nothing, kwargs...)
     Y = Vector{AbstractVector}([])
     stim == "spontaneous" &&
@@ -150,7 +150,7 @@ function stimuluspartition(session, structures, stim; kwargs...)
     stimuluspartition(session, probeids, structures, stim; kwargs...)
 end
 
-function spontaneouspartition(session, probeids, structures; inbrain = 200, mindur = 30,
+function spontaneouspartition(session, probeids, structures; inbrain = 0.0, mindur = 30,
                               kwargs...)
     times = stimulusintervals(session, "spontaneous").interval
     idxs = (diff.(extrema.(times) .|> collect) .|> first) .> mindur
@@ -179,7 +179,7 @@ function spontaneouspartition(session, probeids, structures; inbrain = 200, mind
     return Y
 end
 
-function spontaneouspartition(session, probeids, structures, duration; inbrain = 200)
+function spontaneouspartition(session, probeids, structures, duration; inbrain = 0.0)
     epoch = getepochs(session, "spontaneous")[2, :]
     times = epoch.start_time .. epoch.stop_time
     Y = Vector{AbstractVector}([])
@@ -553,7 +553,7 @@ end
 
 # phasematch(ab::Tuple; kwargs...) = phasematch(ab[1], ab[2], pass=nothing; kwargs...)
 
-function _extracttheta(session, stimulus, structures; inbrain = 200, times = nothing,
+function _extracttheta(session, stimulus, structures; inbrain = 0.0, times = nothing,
                        trail = :offset, thetathresh = 0.6, durprop = 0.5)
     probeids = getprobes(session, structures)
 
