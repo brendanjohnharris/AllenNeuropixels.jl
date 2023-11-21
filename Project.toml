@@ -60,6 +60,7 @@ TimeseriesTools = "380cddd1-6ef2-46ca-b087-e7151fb095ff"
 Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
 
 [compat]
+AllenSDK = "0.1"
 CSV = "0.8, 0.9, 0.10"
 Clustering = "0.15"
 Colors = "0.10, 0.11, 0.12"
