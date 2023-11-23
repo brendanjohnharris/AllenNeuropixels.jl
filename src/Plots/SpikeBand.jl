@@ -56,19 +56,20 @@ function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; order = :rate, marker = 
         end
         idxs = sortperm(sims)
         ax.ylabel = "Unit"
-        order = ()
+        order = 1:length(idxs)
     else
         idxs = sortperm(order)
-        order = [order]
+        order = order[idxs]
     end
     times = collect(values(Y))[idxs]
-    times = times[length.(times) .> 0]
+    tidxs = length.(times) .> 0
+    times = times[tidxs]
     times = Vector{Vector}(times)
-    display(order)
-    p = spy!(ax, order..., times; colormap, marker, markersize)
+    p = spy!(ax, order[tidxs], times; colormap, marker, markersize)
     [translate!(Accum, _p, (0, 0, 200)) for _p in p]
+    dy = diff(collect(extrema(order)))
     lines!(ax, dims(X, Ti) |> collect,
-           collect(length(times) .* (X .- minimum(X)) ./ (maximum(X) - minimum(X)));
+           collect(minimum(order) .+ dy .* (X .- minimum(X)) ./ (maximum(X) - minimum(X)));
            color = (linecolor, linealpha), label, linewidth)
     ax.xlabel = "Time (s)"
 end
