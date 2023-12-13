@@ -1,7 +1,7 @@
 rotatereferenceatlas = x -> reverse(permutedims(x, (1, 3, 2)), dims = (3,))
 # Plot the reference volume and probe locations
 function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targets,
-                             resolution = (1920, 1080), kwargs...)
+                             size = (1920, 1080), kwargs...)
     channels = AN.getchannels(S)
     vol, info = AN.gettemplatevolume()
     vol = Array{Float16}(vol)
@@ -9,7 +9,7 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
     #coords = [(1:s).*25 for s ∈ size(vol)] # 25 μm resolution
     #vol = reverse(permutedims(vol, [1 3 2]), dims=(1,3))
     #coords = [1:x for x ∈ size(vol)].*50
-    s = Scene(backgroundcolor = RGBA(1.0, 1.0, 1.0, 0.0), resolution = resolution,
+    s = Scene(backgroundcolor = RGBA(1.0, 1.0, 1.0, 0.0), size = resolution,
               transparency = true)
     coords = [1:s for s in size(rotatereferenceatlas(vol)) ./ 2]
     coords[3] = .-coords[3]
@@ -137,7 +137,7 @@ function formattedreferencevolume(S, file::String = "plot.html")
                           dostructures = true,
                           ids = :targets,
                           show_axis = false,
-                          shading = true, resolution = (1080, 1080))
+                          shading = true, size = (1080, 1080))
 end
 
 # ? ---------------------------- # New functions --------------------------- ? #
@@ -171,7 +171,7 @@ Plot a brain structure with the given ID on the given axis.
 D = AllenNeuropixels.getstructureidmap()
 id = D["root"] # The whole brain
 
-f = Figure(; resolution = (1920, 1080))
+f = Figure(; size = (1920, 1080))
 ax = Axis3(f[1, 1]; aspect = :data)
 p = AN.Plots.plotbrainstructure!(ax, id; hemisphere=:both)
 ```
@@ -204,7 +204,7 @@ Plot a 3D representation of the brain with probes and structures.
 # Example
 ```
 S = ANB.VisualBehavior.Session(1067588044)
-f = Figure(; resolution = (1920, 1080))
+f = Figure(; size = (1920, 1080))
 ax = Axis3(f[1, 1]; aspect = :data)
 c, p = AN.Plots.plotbrain!(ax, S; dark = false)
 ```

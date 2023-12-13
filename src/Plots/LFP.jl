@@ -6,9 +6,9 @@ using StatsBase
 using IntervalSets
 import AllenNeuropixelsBase as ANB
 
-function slidingcarpet(x, y, Z; resolution = (800, 800), kwargs...)
+function slidingcarpet(x, y, Z; size = (800, 800), kwargs...)
     # x is a vector of times labelling columns of Z, , y is a vector labelling rows of Z and Z is the matrix of time series data
-    fig = Figure(; resolution = resolution)
+    fig = Figure(; size = size)
     # sl_a = Makie.Slider(fig[1, 1], range = 0:0.01:10, startvalue = 3)
     # sl_t = Makie.Slider(fig[2, 1], range = 0:0.01:10, startvalue = 3)
     sla = labelslider!(fig, "Window", (2:length(x)))
@@ -36,18 +36,18 @@ function slidingcarpet(x, y, Z; resolution = (800, 800), kwargs...)
 end
 export slidingcarpet
 
-function slidingcarpet(X::DimArray; resolution = (800, 400), kwargs...)
+function slidingcarpet(X::DimArray; size = (800, 400), kwargs...)
     x = dims(X, Ti).val
     y = dims(X, :channel).val
     Z = Array(X)
-    slidingcarpet(x, y, Z; resolution = resolution, kwargs...)
+    slidingcarpet(x, y, Z; size = size, kwargs...)
 end
 
-function neuroslidingcarpet(X::DimArray; resolution = (800, 400), kwargs...)
+function neuroslidingcarpet(X::DimArray; size = (800, 400), kwargs...)
     time = dims(X, Ti).val
     channels = AN.getstructureacronyms(Meta.parse.(string.(dims(X, :channel).val)))
     fig = slidingcarpet(time, channels, X .- mean(Array(X), dims = 1);
-                        resolution = resolution, kwargs...)
+                        size = size, kwargs...)
 end
 
 """
@@ -59,7 +59,7 @@ function traces(x, X::AbstractArray; smooth = 10, clabel = nothing, tracez = not
     function MA(g)
         [i < smooth ? mean(g[begin:i]) : mean(g[(i - smooth + 1):i]) for i in 1:length(g)]
     end
-    fig = Figure(resolution = (800, 400))
+    fig = Figure(size = (800, 400))
     ax = Axis(fig[1, 1]; kwargs...)
     y = StatsBase.median(X, dims = 2)[:]
     streamlines = vcat(mapslices(MA, X, dims = 1), fill(NaN, (1, size(X, 2))))[:]

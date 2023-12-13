@@ -21,7 +21,7 @@ channels = dims.(LFP, 2) .|> collect
 
 S = ANB.VisualBehavior.Session(sessionid)
 
-f = Figure(; resolution = (1080, 720), lightposition = Vec3(100000.0, 100000.0, 0.0))
+f = Figure(; size = (1080, 720), lightposition = Vec3(100000.0, 100000.0, 0.0))
 ax = Axis3(f[1, 1]; aspect = :data)
 hidedecorations!(ax)
 ax.xspinesvisible = ax.yspinesvisible = ax.zspinesvisible = false
