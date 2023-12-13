@@ -94,7 +94,7 @@ function basicfilter!(B::BurstVector; pass = nothing, fmin = 0.1, tmin = 3, tmax
     filter!(b -> size(mask(b), Ti) > tmin / maxfreq(b) / dt(b), B) # Filter bursts that have a duration less than tmin cycles
     isnothing(pass) || (filter!(b -> size(mask(b), Ti) < tmax / pass[1] / dt(b), B))
     # filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
-    # filter!(b->passes(extrema(dims(mask(b), Dim{:frequency}))), B)
+    # filter!(b->passes(extrema(dims(mask(b), Freq))), B)
 end
 basicfilter!(; kwargs...) = x -> basicfilter!(x; kwargs...)
 
@@ -451,7 +451,7 @@ function burstmask(res::LogWaveletMatrix, peak; thresh = 0.8, n = 3)#, diffthres
     # ups = res[pidx[1]][𝑓 .> peak[2]]
     # dups = vcat([0], diff(ups))
     # up = findfirst((ups .< thresh) .| (dups .> diffthresh*maximum(dups)))
-    # bounds[4] = isnothing(up) ? size(res, Dim{:frequency}) : findfirst(𝑓 .> peak[2]) + up - 1
+    # bounds[4] = isnothing(up) ? size(res, Freq) : findfirst(𝑓 .> peak[2]) + up - 1
 
     # bounds[1:2] .= t[Int.(bounds[1:2])]
     # bounds[3:4] .= 𝑓[Int.(bounds[3:4])]
@@ -483,12 +483,12 @@ function burstmask(res::LogWaveletMatrix, peak; thresh = 0.8, n = 3)#, diffthres
     up = findfirst((ups .< thresh))
     w = up
     up = findfirst(p) + n * w
-    bounds[4] = min(size(res, Dim{:frequency}), up)
+    bounds[4] = min(size(res, Freq), up)
 
     bounds[1:2] .= t[Int.(bounds[1:2])]
     bounds[3:4] .= 𝑓[Int.(bounds[3:4])]
 
-    mask = res[Ti(Interval(bounds[1:2]...)), Dim{:frequency}(Interval(bounds[3:4]...))]
+    mask = res[Ti(Interval(bounds[1:2]...)), Freq(Interval(bounds[3:4]...))]
 end
 
 """
@@ -980,7 +980,7 @@ end
 
 function burstcommunication(LFPs, ℬ, f; kwargs...)
     W = burstcommunication(LFPs, ℬ; kwargs...)
-    Ws = [w[Dim{:frequency}(Near(Float64(f)))] for w in W]
+    Ws = [w[Freq(Near(Float64(f)))] for w in W]
     return Ws
 end
 

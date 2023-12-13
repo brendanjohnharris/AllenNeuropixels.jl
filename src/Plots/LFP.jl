@@ -89,7 +89,7 @@ export traces
 
 function powerlawfit(_psd::AN.PSDMatrix)
     y = log10.(mean(_psd, dims = Dim{:channel}))
-    x = dims(_psd, Dim{:frequency}) |> collect
+    x = dims(_psd, Freq) |> collect
     x = repeat(log10.(x), 1, size(y, 2))
     y = Array(y)[:] # Flatten for regression
     x = x[:]
@@ -116,13 +116,13 @@ function plotLFPspectra(LFP::AbstractDimArray; slope = nothing,
     𝑓 = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p in P]...)
     psd = psd ./ (sum(psd, dims = 1) .* (𝑓[2] - 𝑓[1]))
-    psd = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
+    psd = DimArray(psd, (Freq(𝑓), dims(LFP, :channel)))
     fig = traces(𝑓, Array(psd); xlabel = "𝑓 (Hz)", ylabel = "Ŝ",
                  title = "Normalised power spectral density", smooth = 1,
                  yscale = Makie.log10, xscale = Makie.log10, doaxis = false, domean = false,
                  yminorgridvisible = false, kwargs...)
     if !isnothing(slope)
-        _psd = psd[Dim{:frequency}(DD.Between(slope...))]
+        _psd = psd[Freq(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color = slopecolor,
                linewidth = 5)
@@ -148,14 +148,14 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope = nothing
     𝑓 = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p in P]...)
     psd = psd ./ (sum(psd, dims = 1) .* (𝑓[2] - 𝑓[1]))
-    psd = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
+    psd = DimArray(psd, (Freq(𝑓), dims(LFP, :channel)))
     depths = ANB.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
     fig = traces(𝑓, Array(psd); tracez = -depths, xlabel = "𝑓 (Hz)", ylabel = "Ŝ",
                  title = "Normalised power spectral density", clabel = "Depth", smooth = 1,
                  yscale = Makie.log10, doaxis = false, domean = false,
                  yminorgridvisible = false, kwargs...)
     if !isnothing(slope)
-        _psd = psd[Dim{:frequency}(DD.Between(slope...))]
+        _psd = psd[Freq(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color = slopecolor,
                linewidth = 5)
@@ -180,7 +180,7 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector; slopecolor = not
         P = [fp(Array(x)) for x in eachcol(LFP)]
         psd = hcat([p.power for p in P]...)
         psd = psd ./ (sum(psd, dims = 1) .* (𝑓[2] - 𝑓[1]))
-        A[x] = DimArray(psd, (Dim{:frequency}(𝑓), dims(LFP, :channel)))
+        A[x] = DimArray(psd, (Freq(𝑓), dims(LFP, :channel)))
     end
     depths = [ANB.getchanneldepths(session, probeids[x], collect(dims(A[x], :channel)))
               for x in 1:length(probeids)]
