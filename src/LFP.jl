@@ -234,6 +234,7 @@ end
 DSP.hilbert(X::LFPMatrix) = mapslices(hilbert, X, dims = Ti)
 DSP.hilbert(X::LFPVector) = DimArray(hilbert(X |> Array), dims(X); refdims = refdims(X))
 
+#!!!!!!!!!!!!!!!!!
 function _waveletfreqs(t; moth = Morlet(2π), β = 1, Q = 32)
     n = length(t)
     fs = 1.0 ./ step(t) # Assume rectified time dim
@@ -275,6 +276,7 @@ function _wavelettransform(x::LFPVector; rectify = true, moth = Morlet(2π), β 
     freqs = waveletfreqs(t; moth, β, Q, pass)
     res = DimArray(res, (t, Dim{:frequency}(freqs)); metadata = DimensionalData.metadata(x),
                    refdims = refdims(x))
+    res = res[Dim{:frequency}(Interval(extrema(pass)...))]
 end
 
 function _wavelettransform(x::LFPVector, ::Val{:mmap}; window = 50000, kwargs...)
@@ -316,6 +318,7 @@ _wavelettransform(x, s::Symbol; kwargs...) = _wavelettransform(x, Val(s); kwargs
 function wavelettransform(x::LFPVector, args...; kwargs...)
     abs.(_wavelettransform(x, args...; kwargs...))
 end
+#!!!!!!!!!!!!
 
 function fooof(p::LogWaveletMatrix, freqrange = [1.0, 300.0])
     ffreqs = 10.0 .^ collect(dims(p, Dim{:logfrequency}))
