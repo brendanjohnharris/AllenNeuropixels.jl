@@ -274,9 +274,9 @@ function _wavelettransform(x::LFPVector; rectify = true, moth = Morlet(2π), β 
     t = dims(x, Ti)
     res = _wavelettransform(t, x |> Array; moth, β, Q, pass)
     freqs = waveletfreqs(t; moth, β, Q, pass)
-    res = DimArray(res, (t, Dim{:frequency}(freqs)); metadata = DimensionalData.metadata(x),
+    res = DimArray(res, (t, Freq(freqs)); metadata = DimensionalData.metadata(x),
                    refdims = refdims(x))
-    res = res[Dim{:frequency}(Interval(extrema(pass)...))]
+    res = res[Freq(Interval(extrema(pass)...))]
 end
 
 function _wavelettransform(x::LFPVector, ::Val{:mmap}; window = 50000, kwargs...)
@@ -292,7 +292,7 @@ function _wavelettransform(x::LFPVector, ::Val{:mmap}; window = 50000, kwargs...
     s = open(fname, "w+")
     write.((s,), sz)
     W = mmap(s, Matrix{ComplexF32}, sz)
-    res = DimArray(W, (t, Dim{:frequency}(freqs)); metadata = (; md..., file = fname),
+    res = DimArray(W, (t, Freq(freqs)); metadata = (; md..., file = fname),
                    refdims = rd)
     threadlog, threadmax = (0, length(𝓍))
     @withprogress name="Wavelet transform" begin
@@ -302,7 +302,7 @@ function _wavelettransform(x::LFPVector, ::Val{:mmap}; window = 50000, kwargs...
             fx = extrema(dims(subres, 2))
             tilims = Interval{:closed, :closed}(tx[1] - e, tx[2] + e)
             flims = Interval{:closed, :closed}(fx[1] - e, fx[2] + e)
-            res[Ti(tilims), Dim{:frequency}(flims)] .= subres
+            res[Ti(tilims), Freq(flims)] .= subres
             if threadmax > 1
                 Threads.threadid() == 1 && (threadlog += 1) % 1 == 0 &&
                     @logprogress threadlog / threadmax
@@ -390,7 +390,7 @@ function fooofedwavelet(x::LFPVector; kwargs...)
 end
 import AllenNeuropixelsBase.PSDVector, AllenNeuropixelsBase.PSDMatrix
 function aperiodicfit(psd::PSDVector, freqrange = [1.0, 300.0])
-    ffreqs = dims(psd, Dim{:frequency}) |> collect
+    ffreqs = dims(psd, Freq) |> collect
     freqrange = pylist([(freqrange[1]), (freqrange[2])])
     spectrum = vec(collect(psd))
     fm = PyFOOOF.FOOOF(peak_width_limits = pylist([0.5, 50.0]), max_n_peaks = 10,
@@ -404,7 +404,7 @@ end
 
 function fooofedspectrum!(psd::PSDMatrix, freqrange = [1.0, 300.0]; kwargs...)
     L = aperiodicfit.(eachcol(psd), (freqrange,); kwargs...)
-    ffreqs = dims(psd, Dim{:frequency}) |> collect
+    ffreqs = dims(psd, Freq) |> collect
     L = hcat([l.(ffreqs) for l in L]...)
     psd .= psd .- L
 end
@@ -441,14 +441,14 @@ function wavelettransform!(res::Dict, LFP::LFPMatrix; window = false, kwargs...)
                 s = open(tempname(), "w+")
                 write.((s,), sz)
                 W = mmap(s, Matrix{Float32}, sz)
-                _res = DimArray(W, (t, Dim{:frequency}(freqs)))
+                _res = DimArray(W, (t, Freq(freqs)))
                 for _x in 𝓍
                     subres = wavelettransform(_x; kwargs...)
                     tx = extrema(dims(subres, 1))
                     fx = extrema(dims(subres, 2))
                     tilims = Interval{:closed, :closed}(tx[1] - eps(), tx[2] + eps())
                     flims = Interval{:closed, :closed}(fx[1] - eps(), fx[2] + eps())
-                    _res[Ti(tilims), Dim{:frequency}(flims)] .= subres
+                    _res[Ti(tilims), Freq(flims)] .= subres
                 end
             else
                 push!(res, dims(LFP, 2)[c] => wavelettransform(x; kwargs...)) # Doesnt actually write to file
@@ -490,7 +490,7 @@ end
 
 function powerspectra(t, x, X; kwargs...)
     𝑓, psd = powerspectra(t, X; kwargs...)
-    psd = DimArray(psd, (Dim{:frequency}(𝑓), Dim{:channel}(x)))
+    psd = DimArray(psd, (Freq(𝑓), Dim{:channel}(x)))
 end
 
 function powerspectra(X::LFPMatrix; kwargs...)
@@ -502,7 +502,7 @@ end
 function powerspectra(x::LFPVector; kwargs...)
     t = dims(x, Ti) |> collect
     𝑓, psd = powerspectra(t, collect(x); kwargs...)
-    psd = DimArray(psd[:], (Dim{:frequency}(𝑓),))
+    psd = DimArray(psd[:], (Freq(𝑓),))
 end
 
 function mutualinfo(x, y, est; base = 2, α = 1)
