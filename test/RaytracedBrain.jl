@@ -15,10 +15,10 @@ channels = AN.getchannels(S)
 vol, info = ANB.gettemplatevolume()
 vol = Array{Float16}(vol)
 grad = cgrad(cgrad([RGBA(1.0, 1.0, 1.0, 0.0), RGBA(0.0, 0.0, 0.0, 1.0)]), 100)
-#coords = [(1:s).*25 for s ∈ size(vol)] # 25 μm resolution
+#coords = [(1:s).*25 for s ∈ size(vol)] # 25 μm size
 #vol = reverse(permutedims(vol, [1 3 2]), dims=(1,3))
 #coords = [1:x for x ∈ size(vol)].*50
-# s = Scene(backgroundcolor = RGBA(1.0, 1.0, 1.0, 0.0), size = resolution, transparency=true)
+# s = Scene(backgroundcolor = RGBA(1.0, 1.0, 1.0, 0.0), size = size, transparency=true)
 coords = [1:s for s in size(AN.Plots.rotatereferenceatlas(vol)) ./ 2]
 coords[3] = .-coords[3]
 

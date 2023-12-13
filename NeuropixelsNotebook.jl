@@ -7,21 +7,21 @@ using InteractiveUtils
 # ╔═╡ 98c9bbd2-aac5-4c90-ac0c-d8d935f5cdaf
 # For WGLMakie
 begin
-	using Pkg
-	Pkg.add("JSServe")
-	using JSServe
-	Page()
+    using Pkg
+    Pkg.add("JSServe")
+    using JSServe
+    Page()
 end
 
 # ╔═╡ 0a622047-c238-49c3-bdf0-3248d0f0d261
 # Just for me
 begin
-	using Revise
-	cd("../")
-	Pkg.activate("@v1.6")
-	Pkg.develop(path="./AllenNeuropixels.jl")
-	cd("./AllenNeuropixels.jl")
-	Pkg.activate("./")
+    using Revise
+    cd("../")
+    Pkg.activate("@v1.6")
+    Pkg.develop(path = "./AllenNeuropixels.jl")
+    cd("./AllenNeuropixels.jl")
+    Pkg.activate("./")
 end
 
 # ╔═╡ 2e3d037c-932d-4d5a-afdb-351e836bdfb2
@@ -85,7 +85,7 @@ md"""We'll pick a session that has six probes:"""
 
 # ╔═╡ efd3ef52-4acb-4ffd-b794-1dfc4d9819c8
 function numprobes(sessionid)
-	session_table[session_table[!, :id].==sessionid, :probe_count][1]
+    session_table[session_table[!, :id] .== sessionid, :probe_count][1]
 end
 
 # ╔═╡ e30e349c-6ad7-402b-90d1-7720b85a9c2c
@@ -93,12 +93,27 @@ md"And look for sessions that have probes intersecting the target regions listed
 
 # ╔═╡ d2d20884-0fcd-4ac7-8a14-dbf936445c3b
 function targetintersections(sessionid)
-	s = session_table[session_table.id.==sessionid, :ecephys_structure_acronyms][1]
-	targets = ["VISp", "VISl", "VISrl", "VISal", "VISpm", "VISam", "CA1", "CA3", "DG", "SUB", "ProS", "LGd", "LP", "APN"];
-	structures = eachmatch(r"'(.*?)'", s)
-	structures = [replace(x.match, r"'"=>s"") for x ∈ structures]
-	targetsintersected = [x ∈ structures for x ∈ targets]
-	return mean(targetsintersected)
+    s = session_table[session_table.id .== sessionid, :ecephys_structure_acronyms][1]
+    targets = [
+        "VISp",
+        "VISl",
+        "VISrl",
+        "VISal",
+        "VISpm",
+        "VISam",
+        "CA1",
+        "CA3",
+        "DG",
+        "SUB",
+        "ProS",
+        "LGd",
+        "LP",
+        "APN",
+    ]
+    structures = eachmatch(r"'(.*?)'", s)
+    structures = [replace(x.match, r"'" => s"") for x in structures]
+    targetsintersected = [x ∈ structures for x in targets]
+    return mean(targetsintersected)
 end;
 
 # ╔═╡ 99fe41d6-661d-4b9f-a853-2f32ace53d72
@@ -144,15 +159,15 @@ md"Some session-level metrics are:"
 
 # ╔═╡ fd03139c-4bd1-4f26-a8c3-46c3feefd9c5
 session_metrics = combine(groupby(metrics, :ecephys_session_id),
-		:ecephys_session_id => numprobes∘unique => :num_probes,
-		:ecephys_session_id => targetintersections∘unique => :target_intersections,
-		:has_lfp_data=>all,
-		:genotype => (x->all(isequal.(x, ("wt/wt",)))) => :is_wt,
-		:max_drift=>median∘skipmissing,
-		:d_prime=>median∘skipmissing,
-		:isolation_distance=>median∘skipmissing,
-		:silhouette_score=>median∘skipmissing,
-		:snr=>median∘skipmissing)
+                          :ecephys_session_id => numprobes ∘ unique => :num_probes,
+                          :ecephys_session_id => targetintersections ∘ unique => :target_intersections,
+                          :has_lfp_data => all,
+                          :genotype => (x -> all(isequal.(x, ("wt/wt",)))) => :is_wt,
+                          :max_drift => median ∘ skipmissing,
+                          :d_prime => median ∘ skipmissing,
+                          :isolation_distance => median ∘ skipmissing,
+                          :silhouette_score => median ∘ skipmissing,
+                          :snr => median ∘ skipmissing)
 
 # ╔═╡ 51eccd32-d4e9-4330-99f5-fca0f8534e43
 md"""
@@ -161,11 +176,11 @@ Of particular importance are the first five columns. The ideal session will have
 
 # ╔═╡ 927605f4-0b59-4871-a13f-420aadedd487
 oursession = subset(session_metrics,
-						:num_probes => ByRow(==(6)),
-						:target_intersections => ByRow(>(0.9)),
-						:is_wt => ByRow(==(true)),
-						:has_lfp_data_all => ByRow(==(true)),
-						:max_drift_median_skipmissing => ByRow(<(25.0)))
+                    :num_probes => ByRow(==(6)),
+                    :target_intersections => ByRow(>(0.9)),
+                    :is_wt => ByRow(==(true)),
+                    :has_lfp_data_all => ByRow(==(true)),
+                    :max_drift_median_skipmissing => ByRow(<(25.0)))
 
 # ╔═╡ 23d8fad0-5c51-4056-8df3-fd850db7b560
 md"""
@@ -198,7 +213,7 @@ probes = AN.getprobes(session)
 md"We are only interested in channels located within the brain, so the `missing` structure ids are removed and the channels for this session become:"
 
 # ╔═╡ 5f944e90-5232-4508-9a3a-c678e6804104
-channels = subset(AN.getchannels(session), :ecephys_structure_id=>ByRow(!ismissing))
+channels = subset(AN.getchannels(session), :ecephys_structure_id => ByRow(!ismissing))
 
 # ╔═╡ 423edd0f-60ed-4d9a-b84a-47e47e560ae2
 md"""
@@ -212,7 +227,8 @@ We can then plot the probe locations on the reference atlas. Note that the color
 #								shading=true); rotate_cam!(s, Vec3f0(0, 2.35, 0)); s
 
 # To save you from waiting for the structure masks to download:
-@html_str read(download("https://dl.dropbox.com/s/se2doygr56ox8hs/probelocations.html?dl=0"), String)
+@html_str read(download("https://dl.dropbox.com/s/se2doygr56ox8hs/probelocations.html?dl=0"),
+               String)
 # This renders best in firefox
 
 # ╔═╡ b9c2e65c-03cf-45d7-9309-b601f486c62b
@@ -230,7 +246,7 @@ md"And sorted by depth with:"
 sortedLFP = AN.sortbydepth(session, probeid, LFP)[:, end:-1:1]
 
 # ╔═╡ 39ae3db9-b799-4389-80e7-e898e4e88a84
-fig = AN.Plots.neuroslidingcarpet(sortedLFP[1:5000, :]; resolution=(800, 1600))
+fig = AN.Plots.neuroslidingcarpet(sortedLFP[1:5000, :]; size = (800, 1600))
 
 # ╔═╡ 87ab5ec5-67a9-413d-8789-6a8b7113de65
 md"""
@@ -239,10 +255,10 @@ There are still channels with little signal outside of the brain and at the very
 
 # ╔═╡ da9fa8b0-afcf-4f3d-bd6d-856b69ab6d28
 begin
-	depthcutoff = 200 # μm
-	times = AN.getepochs(session, "natural_movie_three")[1, :]
-	times = [times.start_time, times.stop_time]
-	inbrainLFP = AN.getlfp(session, probeid; inbrain=depthcutoff, times)
+    depthcutoff = 200 # μm
+    times = AN.getepochs(session, "natural_movie_three")[1, :]
+    times = [times.start_time, times.stop_time]
+    inbrainLFP = AN.getlfp(session, probeid; inbrain = depthcutoff, times)
 end
 
 # ╔═╡ Cell order:
