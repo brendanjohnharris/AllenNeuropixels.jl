@@ -24,6 +24,10 @@ Burst(mask, thresh, peak; kwargs...) = Burst(; mask, thresh, peak, kwargs...)
 phasemask(B::Burst) = B.phasemask
 duration(B::Burst) = B.fit.param[4]
 logspectralwidth(B::Burst) = B.fit.param[5]
+maxperiod(B::Burst) = 1 / maxfreq(B)
+function periods(B::Burst)
+    duration(B) / maxperiod(B)
+end
 function spectralwidth(B::Burst) # Std of a log-normal distribution
     σ = logspectralwidth(B)
     μ = logpeakfreq(B)
@@ -33,6 +37,9 @@ amplitude(B::Burst) = B.fit.param[1]
 mask(B::Burst) = B.mask
 # binarymask(B::Burst) = B.mask .> B.thresh[1]
 peaktime(B::Burst) = B.fit.param[2]
+maxmaskfreq(B::Burst) = exp10(dims(mask(B), 2)[end])
+minmaskfreq(B::Burst) = exp10(dims(mask(B), 2)[1])
+maskfreqextrema(B::Burst) = (minmaskfreq(B), maxmaskfreq(B))
 maxfreq(B::Burst) = exp10(dims(mask(B), 2)[findmax(mask(B))[2][2]])
 maxtime(B::Burst) = dims(mask(B), 1)[findmax(mask(B))[2][1]]
 logpeakfreq(B::Burst) = B.fit.param[3]
@@ -101,7 +108,12 @@ basicfilter!(; kwargs...) = x -> basicfilter!(x; kwargs...)
 function bandfilter!(B::BurstVector; pass = [50, 60])
     pass = Interval(pass...)
     filter!(b -> maxfreq(b) ∈ pass, B)
+    filter!(b -> peakfreq(b) ∈ pass, B)
 end
+function periodfilter!(B::BurstVector; n = 2)
+    filter!(b -> periods(b) ≥ n, B)
+end
+filterbursts! = bandfilter!
 
 bandfilter!(; kwargs...) = x -> bandfilter!(x; kwargs...)
 bandfilter(B; kwargs...) = (Bs = deepcopy(B); bandfilter!(Bs; kwargs...); Bs)
@@ -117,11 +129,6 @@ function filtergammabursts!(B::BurstVector; fmin = 1, tmin = 0.008, pass = [50, 
 end
 
 filternbg! = filtergammabursts!
-
-function filterbursts!(B::BurstVector; pass)
-    pass = Interval(pass...)
-    filter!(b -> peakfreq(b) ∈ pass, B)
-end
 
 # # Old method, global distribution
 # function threshold(res, thresh, method)
@@ -227,12 +234,12 @@ end
 function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 3,
                        boundingstretch = 0.5, method = :iqr, areacutoff = 1, dofit = false,
                        filter = nothing)
-    # @info "Thresholding amplitudes"
+    @debug "Thresholding amplitudes"
     _res = burstthreshold(res, thresh; method) .> 0
-    # @info "Thresholding curvatures"
+    @debug "Thresholding curvatures"
     _res = _res .& (burstcurvature(res, curvaturethresh) .> 0)
 
-    # @info "Finding connected components"
+    @debug "Finding connected components"
     components = ImageMorphology.label_components(_res |> Array)
     areas = ImageMorphology.component_lengths(components)[2:end]
     idxs = areas .≥ areacutoff
@@ -321,8 +328,12 @@ Detect bursts from a supplied wavelet spectrum, using thresholding
 """
 function detectbursts(res::LogWaveletMatrix; pass = nothing, dofit = true,
                       detection = _detectbursts, kwargs...)
-    isnothing(pass) ||
-        (@info "Selecting the $(pass) Hz band"; res = res[Dim{:logfrequency}(Interval(log10.(pass)...))])
+    if !isnothing(pass)
+        fpass = collect(log10.(pass))
+        fpass = [fpass[1] - 0.25, fpass[2] + 0.25] # Slightly widen for better burst estimates. We still filter burst centers in the provided pass band later
+        @info "Selecting the $(pass) Hz band"
+        res = res[Dim{:logfrequency}(Interval(fpass...))]
+    end
     B = detection(res; filter = basicfilter!(; pass), dofit, kwargs...)
     # isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
 
@@ -345,6 +356,29 @@ function detectbursts(x::LFPVector; kwargs...) # surrodur=min(length(x), round(I
     # γ = gammafilter(x; pass)
     res = fooofedwavelet(x)
     detectbursts(res; kwargs...)
+end
+
+function simpleburstdetection(y_back; thresh = 5, pass, kwargs...)
+    # First construct the group estimate and the surrogate
+    res_back = _wavelettransform(y_back)
+    # res_back = AN.logwaveletmatrix(res_back .|> abs)
+    phi = angle.(res_back)
+    res = abs.(res_back)
+    res = logwaveletmatrix(res)
+    phi = logwaveletmatrix(phi)
+    sres = surrogate(y_back, FT()) |>
+           x -> abs.(_wavelettransform(x)) |> logwaveletmatrix
+
+    B = detectbursts(res; detection = detectbursts, dofit = true,
+                     pass, method = :iqr, thresh, kwargs...)
+    addphasemasks!(B, phi)
+    filterbursts!(B; pass)
+
+    B_sur = detectbursts(sres; detection = detectbursts, dofit = true,
+                         pass, method = :iqr, thresh, kwargs...)
+    bandfilter!(B_sur; pass)
+    periodfilter!(B_sur)
+    return B, B_sur
 end
 
 function fit!(B::Burst)
@@ -912,14 +946,14 @@ function gaussianmask(B...; ts = nothing, fs = nothing, span = 3)
     return masks
 end
 
-function burstoverlap(res1::LogWaveletMatrix, res2::LogWaveletMatrix; normdims = :frequency,
+function burstoverlap(res1::LogWaveletMatrix, res2::LogWaveletMatrix; normdims = Freq,
                       globalnorm = false)
     normall(x) = (x .- minimum(x)) ./ (maximum(x) - minimum(x))
     function normfrequency(x)
         (x .- minimum(x, dims = Ti)) ./ (maximum(x; dims = Ti) - minimum(x; dims = Ti))
     end
     normdims == :all && (res1, res2 = normall.([res1, res2]))
-    normdims == :frequency && (res1, res2 = normfrequency.([res1, res2]))
+    normdims == Freq && (res1, res2 = normfrequency.([res1, res2]))
     normdims == :frequencymax &&
         (res1, res2 = maximum.([res1, res2], dims = Dim{:logfrequency}))
 
