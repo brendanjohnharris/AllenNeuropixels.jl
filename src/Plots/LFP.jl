@@ -308,6 +308,7 @@ function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector;
     ax.xlabel = "Time (s)"
     ax.ylabel = "Frequency (Hz)"#, yscale=Makie.pseudolog10);
     t, freqs, res = decompose(res)
+    res = Array(res)
     ts = ClosedInterval(extrema(t[1:downsample:N])...)
     fs = ClosedInterval(extrema(exp10.(freqs))...)
     p = Makie.heatmap!(ax, t[1:downsample:N], exp10.(freqs), res[1:downsample:N, :];
@@ -316,11 +317,12 @@ function plotfit!(ax, res::AN.LogWaveletMatrix, B::AN.BurstVector;
 
     for b in B[AN.peaktime.(B) .∈ (ts,)]
         t, freqs, res = decompose(b.mask)
+        res = Array(res)
         contour!(ax, t[1:downsample:end], exp10.(freqs), res[1:downsample:end, :];
                  color = contourcolor, linewidth = 2)
         vs = collect(Iterators.product((b |> AN.mask |> AN.waveletmatrix |> dims .|>
                                         extrema)...))
-        poly!(Point2f.(vs[[1, 2, 4, 3]]), color = RGBA(0, 0, 0, 0), strokecolor,
+        poly!(Point2f.(vs[[1, 2, 4, 3]]); color = RGBA(0, 0, 0, 0), strokecolor,
               strokewidth = 4)
     end
     ax.limits = (extrema(ts), extrema(fs))

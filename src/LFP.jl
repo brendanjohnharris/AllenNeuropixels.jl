@@ -12,6 +12,7 @@ using TimeseriesSurrogates
 using HTTP
 using PyFOOOF
 using ProgressLogging
+using TimeseriesTools
 using Mmap
 
 bandpass(; kwargs...) = x -> bandpass(x; kwargs...)
@@ -276,7 +277,10 @@ function _wavelettransform(x::LFPVector; rectify = true, moth = Morlet(2π), β 
     freqs = waveletfreqs(t; moth, β, Q, pass)
     res = DimArray(res, (t, Freq(freqs)); metadata = DimensionalData.metadata(x),
                    refdims = refdims(x))
-    res = res[Freq(Interval(extrema(pass)...))]
+    if !isnothing(pass)
+        res = res[Freq(Interval(extrema(pass)...))]
+    end
+    return res
 end
 
 function _wavelettransform(x::LFPVector, ::Val{:mmap}; window = 50000, kwargs...)
