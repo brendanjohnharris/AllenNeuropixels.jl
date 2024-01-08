@@ -1,57 +1,77 @@
-using GLMakie
-GLMakie.activate!(ssao = true)
-# using CairoMakie
-using FileIO
-import AllenNeuropixels as AN
-import AllenNeuropixels.AllenNeuropixelsBase as ANB
-using DataFrames
-import AllenNeuropixelsBase.GeometryBasics
+@info @__FILE__
+@info pwd()
+using IntervalSets
 using Normalization
+using GLMakie
+import GLMakie.record
 using DimensionalData
-import AllenNeuropixels.Plots.plotbrain!
+using ProgressLogging
 using Foresight
 using TimeseriesTools
-set_theme!(foresight(:dark, :physics, :serif))
+using AllenNeuropixels
+import AllenNeuropixels as AN
+set_theme!(foresight(:dark))
 
-LFP = load(abspath(Base.find_package("AllenNeuropixels"), "..", "..", "test",
-                   "PlotBrain.jld2"))["LFP"]
-LFP = bandpass.(LFP, [[20.0, 500.0]])
-sessionid = LFP[1].metadata[:sessionid]
-channels = dims.(LFP, 2) .|> collect
+plotpath = "/home/brendan/OneDrive/Masters/Code/Vortices/Julia/AllenAttention/test/Neuropixels/VisualBehavior/SingleSubject/ThetaBurstBehavior/"
 
-S = ANB.VisualBehavior.Session(sessionid)
+# * Get data
+begin
+    sessionid = 1130113579 # 1067588044 #
+    pass = (3, 10)
+    fs = 1250
+end
+begin
+    session = AN.Session(sessionid)
+    probeids = AN.getprobes(session).id
+    _LFP = map(x -> AN.getlfp(session, x; times = 4600 .. 4700), probeids)
+end
+begin
+    start = 100
+    step = 2
+    N = 2000
+    LFP = AN.rectifytime.(_LFP)
+    LFP = bandpass.(LFP, [pass])
+    LFP = getindex.(LFP, [range(; start, step, length = N)], [:])
+    channels = dims.(LFP, 2) .|> collect
+end
 
-f = Figure(; size = (1080, 720), lightposition = Vec3(100000.0, 100000.0, 0.0))
-ax = Axis3(f[1, 1]; aspect = :data)
-hidedecorations!(ax)
-ax.xspinesvisible = ax.yspinesvisible = ax.zspinesvisible = false
-probeids, c, p = AN.Plots.plotbrain!(ax, S; dark = false, probestyle = :meshscatter,
-                                     channels, markersize = 100.0, fontsize = 15.0)
-f
+begin # Set up plot
+    f = Figure(; size = (720, 1080), light_direction = Vec3(100000.0, 100000.0, 0.0))
+    ax = Axis3(f[1, 1]; aspect = :data, title = "0 s", titlegap = -100)
+    hidedecorations!(ax)
+    ax.xspinesvisible = ax.yspinesvisible = ax.zspinesvisible = false
+    probeids, c, p = AN.Plots.plotbrain!(ax, session; dark = false,
+                                         probestyle = :meshscatter,
+                                         channels, markersize = 100.0, fontsize = 15.0)
+    f
+end
 
-# ? Animate activity from an LFP trace. An example is saved in PlotBrain.jld2
-framerate = 60
-ts = size(LFP[1], 1)
-(idxs = indexin(probeids, getindex.(DimensionalData.metadata.(LFP), :probeid)); X = collect.(LFP[idxs])) # Sort to probe order in plot
+begin # ? Animate activity from an LFP trace. An example is saved in PlotBrain.jld2
+    framerate = 60
+    ts = size(LFP[1], 1)
+    truets = times(LFP[1])
+    (idxs = indexin(probeids, getindex.(DimensionalData.metadata.(LFP), :probeid)); X = collect.(LFP[idxs])) # Sort to probe order in plot
 
-Nc = length.([_c[] for _c in c])
+    Nc = length.([_c[] for _c in c])
 
-colormap = cgrad(:binary)
-X = [MinMax(x, dims = 1)(x) for x in X]
-Nt = unique(size.(X, 1))
-length(Nt) > 1 && error("All provided arrays must have the same number of rows")
-Nt = first(Nt)
-record(f, "PlotBrain_dark.gif", 1:Nt; framerate) do t
-    @info "Rendering $t of $Nt frames"
-    for i in eachindex(c)
-        c[i][] = colormap[X[i][t, :]]
-    end
-    if t < Nt ÷ 2
-        ax.azimuth[] += 0.001
-        ax.elevation[] += 0.0005
-    else
-        ax.azimuth[] -= 0.001
-        ax.elevation[] -= 0.0005
+    colormap = cgrad(:binary)
+    X = [MinMax(x, dims = 1)(x) for x in X]
+    Nt = unique(size.(X, 1))
+    length(Nt) > 1 && error("All provided arrays must have the same number of rows")
+    Nt = first(Nt)
+    @withprogress record(f, "PlotBrain.mp4", 1:Nt; framerate) do t
+        for i in eachindex(c)
+            c[i][] = colormap[X[i][t, :]]
+        end
+        if t < Nt ÷ 2
+            ax.azimuth[] += 0.0015
+            ax.elevation[] += 0.0005
+        else
+            ax.azimuth[] -= 0.0015
+            ax.elevation[] -= 0.0005
+        end
+        ax.title[] = "$(round(truets[t], digits=1)) s"
+        @logprogress t / Nt
     end
 end
 

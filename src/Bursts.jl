@@ -39,6 +39,11 @@ mask(B::Burst) = B.mask
 peaktime(B::Burst) = B.fit.param[2]
 maxmaskfreq(B::Burst) = exp10(dims(mask(B), 2)[end])
 minmaskfreq(B::Burst) = exp10(dims(mask(B), 2)[1])
+maxmasktime(B::Burst) = dims(mask(B), 1)[end]
+minmasktime(B::Burst) = dims(mask(B), 1)[1]
+maskfrequencyinterval(B::Burst) = minmaskfreq(B) .. maxmaskfreq(B)
+masklogfrequencyinterval(B::Burst) = log10(minmaskfreq(B)) .. log10(maxmaskfreq(B))
+maskinterval(B::Burst) = minmasktime(B) .. maxmasktime(B)
 maskfreqextrema(B::Burst) = (minmaskfreq(B), maxmaskfreq(B))
 maxfreq(B::Burst) = exp10(dims(mask(B), 2)[findmax(mask(B))[2][2]])
 maxtime(B::Burst) = dims(mask(B), 1)[findmax(mask(B))[2][1]]
@@ -50,13 +55,15 @@ maskduration(B::Burst) = dims(mask(B), Ti) |> extrema |> collect |> diff |> firs
 function maskspectralwidth(B::Burst)
     dims(mask(B), Dim{:logfrequency}) |> extrema |> collect |> diff |> first
 end
-fiterror(B::Burst) = std(B.fit.resid ./ B.mask[:])
+asymmetry(B::Burst) = abs(log10(maxfreq(B)) - log10(peakfreq(B)))
+fiterror(B::Burst) = mean(B.fit.resid) ./ mean(B.mask[:])
 interval(B::Burst, σ = 0.5) = peaktime(B) ± (σ * duration(B))
 timeinterval = interval
-frequencyinterval(B::Burst, σ = 0.5) = logpeakfreq(B) ± (σ * logspectralwidth(B))
+logfrequencyinterval(B::Burst, σ = 0.5) = logpeakfreq(B) ± (σ * logspectralwidth(B))
 inany(x::Number, V::Vector{<:AbstractInterval}) = any(in.((x,), V))
 inany(x::Vector, V::Vector{<:AbstractInterval}) = inany.(x, (V,))
 inany(x::Tuple, V::Vector{<:AbstractInterval}) = inany.(x, (V,))
+isfit(B::Burst) = (getfield(B, :fit) isa LsqFit.LsqFitResult)
 
 function getchannel(B::Burst)
     isempty(mask(B).refdims) ? nothing : refdims(mask(B), Dim{:channel}) |> first
@@ -92,7 +99,7 @@ end
 
 burstlfp = burstsubset
 
-function basicfilter!(B::BurstVector; pass = nothing, fmin = 0.1, tmin = 3, tmax = 5) # fmin in octaves
+function basicfilter!(B::BurstVector; pass = nothing, fmin = 0.1, tmin = 2, tmax = 5) # fmin in octaves
     # fmin = log10(fmin)
     # pass = Interval(pass...)
     # passes(x) = all([y in pass for y in x])
@@ -110,10 +117,22 @@ function bandfilter!(B::BurstVector; pass = [50, 60])
     filter!(b -> maxfreq(b) ∈ pass, B)
     filter!(b -> peakfreq(b) ∈ pass, B)
 end
-function periodfilter!(B::BurstVector; n = 2)
+function periodfilter!(B::BurstVector; n = 1)
     filter!(b -> periods(b) ≥ n, B)
 end
+function periodfilter!(B::BurstVector, B_sur::BurstVector; σ = 2)
+    ps = periods.(B_sur)
+    f(b) = periods(b) > median(ps) + iqr(ps) * σ
+    filter!(f, B)
+end
 filterbursts! = bandfilter!
+
+function filtergof!(B::BurstVector)
+    # filter!(b -> minmaskfreq(b) < peakfreq(b) < maxmaskfreq(b), B)
+    filter!(b -> minmasktime(b) < peaktime(b) < maxmasktime(b), B)
+    filter!(b -> maxmasktime(b) - minmasktime(b) > duration(b), B)
+    # filter!(b -> maxmaskfreq(b) - minmaskfreq(b) > spectralwidth(b), B)
+end
 
 bandfilter!(; kwargs...) = x -> bandfilter!(x; kwargs...)
 bandfilter(B; kwargs...) = (Bs = deepcopy(B); bandfilter!(Bs; kwargs...); Bs)
@@ -153,10 +172,13 @@ function threshold(res, thresh, method)
     if method == :percentile
         cutoff = mapslices(x -> percentile(x, thresh), res, dims = Ti)
     elseif method == :std
-        cutoff = thresh * mapslices(std, res, dims = Ti)
+        cutoff = thresh * mapslices(std, res, dims = Ti) # .+ mapslices(mean, res, dims = Ti)
     elseif method == :iqr
-        cutoff = thresh * mapslices(iqr, res, dims = Ti) ./ 1.35 # 1.35 to be consistent with std threshold on normal data
+        cutoff = thresh * mapslices(iqr, res, dims = Ti) #.+
+        mapslices(median, res, dims = Ti)
     end
+    @debug "Thresholding at $thresh with $(method) method"
+    return cutoff
 end
 
 # function surrogatewavelettransform(x::LFPVector; method=AP(samplingrate(x)), transform=AN.mmapwavelettransform, kwargs...)
@@ -231,7 +253,7 @@ function widen(x, δ = 0.5; upperbound = [Inf, Inf])
     ]
 end
 
-function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 3,
+function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 2,
                        boundingstretch = 0.5, method = :iqr, areacutoff = 1, dofit = false,
                        filter = nothing)
     @debug "Thresholding amplitudes"
@@ -260,8 +282,9 @@ function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 3,
     B = [b for b in B if all(size(b.mask) .> 1)]
 
     if dofit
-        @info "Fitting bursts"
+        @info "Fitting $(length(B)) bursts"
         fit!(B)
+        B = B[isfit.(B)]
     end
     return B
 end
@@ -303,6 +326,31 @@ end
 function significancefilter!(B::BurstVector, Bs::BurstVector, f; thresh = 0.05, kwargs...)
     p = pvalues(B, Bs, f; kwargs...)
     deleteat!(B, p .> thresh)
+end
+
+function mahalanobisfilter!(B::BurstVector, Bs::BurstVector; σ = 2,
+                            metrics = [amplitude, periods])
+    s = hcat([m.(Bs) for m in metrics]...)
+    Σ² = cov(s)
+    μ = mean(s, dims = 1)'
+    x = hcat([m.(B) for m in metrics]...)
+    ℳ(x) = sqrt((x - μ)' * inv(Σ²) * (x - μ))
+    p = ℳ.(eachrow(x)) .|> first
+    # idxs = [_x .> mean(_s) for (_x, _s) in zip(eachcol(x), eachcol(s))] # Ensure we only take the ones above the respective means
+    # idxs = idxs[1] .| idxs
+    deleteat!(B, p .< σ)
+end
+function bivariatefilter!(B::BurstVector, Bs::BurstVector; 𝑝 = 0.05,
+                          metrics = [amplitude, periods])
+    s = hcat([m.(Bs) for m in metrics]...)
+    f(p) = HypothesisTests.pvalue(OneSampleHotellingT2Test(s, [m(p) for m in metrics])) < 𝑝
+    filter!(f, B)
+end
+
+function metricfilter!(B::BurstVector, Bs::BurstVector, metric; σ = 3)
+    s = metric.(Bs)
+    thresh = median(s) .+ iqr(s) * σ
+    filter!(b -> metric(b) > thresh, B)
 end
 
 """
@@ -358,7 +406,7 @@ function detectbursts(x::LFPVector; kwargs...) # surrodur=min(length(x), round(I
     detectbursts(res; kwargs...)
 end
 
-function simpleburstdetection(y_back; thresh = 5, pass, kwargs...)
+function simpleburstdetection(y_back; thresh = 5, pass, method = :iqr, kwargs...)
     # First construct the group estimate and the surrogate
     res_back = _wavelettransform(y_back)
     # res_back = AN.logwaveletmatrix(res_back .|> abs)
@@ -366,18 +414,27 @@ function simpleburstdetection(y_back; thresh = 5, pass, kwargs...)
     res = abs.(res_back)
     res = logwaveletmatrix(res)
     phi = logwaveletmatrix(phi)
-    sres = surrogate(y_back, FT()) |>
-           x -> abs.(_wavelettransform(x)) |> logwaveletmatrix
-
+    sres = surrogate(y_back, FT()) |> _wavelettransform |> logwaveletmatrix
+    sphi = angle.(sres)
+    sres = abs.(sres)
     B = detectbursts(res; detection = detectbursts, dofit = true,
-                     pass, method = :iqr, thresh, kwargs...)
+                     pass, method, thresh, kwargs...)
     addphasemasks!(B, phi)
-    filterbursts!(B; pass)
+    bandfilter!(B; pass)
+    filtergof!(B)
 
     B_sur = detectbursts(sres; detection = detectbursts, dofit = true,
-                         pass, method = :iqr, thresh, kwargs...)
+                         pass, method, thresh, kwargs...)
+    addphasemasks!(B_sur, sphi)
     bandfilter!(B_sur; pass)
-    periodfilter!(B_sur)
+    filtergof!(B_sur)
+
+    @assert length(B_sur)>5 "Not enough surrogate bursts to estimate a distribution"
+    mahalanobisfilter!(B, B_sur; σ = 2, metrics = [amplitude, periods])
+    # metricfilter!(B, B_sur, amplitude; σ = 1)
+
+    periodfilter!(B, n = 1)
+    periodfilter!(B_sur, n = 1)
     return B, B_sur
 end
 
@@ -395,20 +452,28 @@ function fit!(B::Burst)
 end
 
 function fit!(ℬ::AbstractVector{<:AbstractBurst})
-    threadlog, threadmax = (0, length(ℬ) / Threads.nthreads())
     @withprogress name="Fitting bursts" begin
-        Threads.@threads for B in ℬ
+        threadlog, threadmax = (0, length(ℬ))
+        l = Threads.ReentrantLock()
+        Threads.@threads for i in eachindex(ℬ)
             try
-                fit!(B)
+                fit!(ℬ[i])
             catch e
                 @warn e
                 @warn "Could not fit a burst. Skipping"
             end
-            Threads.threadid() == 1 && (threadlog += 1) % 1 == 0 &&
-                @logprogress threadlog / threadmax
+            lock(l)
+            try
+                threadlog += 1
+                if threadlog > threadmax ÷ 3
+                    @logprogress threadlog / threadmax
+                end
+                # @debug "Burst fitting progress: $threadlog/$threadmax"
+            finally
+                unlock(l)
+            end
         end
     end
-    deleteat!(ℬ, findall(.!isa.(getfield.(ℬ, (:fit,)), (LsqFit.LsqFitResult,))))
 end
 
 function gaussian2!(F, xy, p)
