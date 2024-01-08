@@ -65,7 +65,8 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
         (x, y, z) = AN.getprobecoordinates(S, probeid) ./ 50
         if !any(length.((x, y, z)) .== 0)
             f = meshscatter!(s, x, z, -y; markersize = 1.0, fxaa = true,
-                             color = markercolor, matcap = chrome, shading = true,
+                             color = markercolor, matcap = chrome,
+                             shading = Makie.FastShading,
                              transparency = true, kwargs...)
 
             if dotext
@@ -102,7 +103,7 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
                                                   for i in 1:length(coords)])
                 c = AN.getstructurecolor(id)
                 f = mesh!(s, m; color = RGBA(c.r, c.g, c.b, 0.41), fxaa = true,
-                          shading = true, transparency = true, kwargs...)
+                          shading = Makie.FastShading, transparency = true, kwargs...)
             catch y
                 @warn y
             end
@@ -137,7 +138,7 @@ function formattedreferencevolume(S, file::String = "plot.html")
                           dostructures = true,
                           ids = :targets,
                           show_axis = false,
-                          shading = true, size = (1080, 1080))
+                          shading = Makie.FastShading, size = (1080, 1080))
 end
 
 # ? ---------------------------- # New functions --------------------------- ? #
@@ -236,7 +237,7 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
     hemisphere = :right
     if dark
         meshparams = (; fxaa = true,
-                      shading = true,
+                      shading = Makie.FastShading,
                       transparency = true,
                       ssao = true,
                       interpolate = true,
@@ -247,7 +248,7 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
         rootalpha = 0.05
     else
         meshparams = (; fxaa = true,
-                      shading = true,
+                      shading = Makie.FastShading,
                       transparency = true,
                       ssao = true,
                       interpolate = true,
