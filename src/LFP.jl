@@ -100,16 +100,14 @@ function thetafeature(x::LFPVector; kwargs...)
     thetafeature(x, fs; kwargs...)
 end
 
-"""
-Calculate a feature profile for each channel in each region
-"""
 function stimuluspartition(session, probeids, structures, stim; inbrain = 0.0,
-                           times = nothing, epoch = nothing, kwargs...)
+                           times = nothing, epoch = nothing, filter = identity, kwargs...)
     Y = Vector{AbstractVector}([])
     stim == "spontaneous" &&
         return spontaneouspartition(session, probeids, structures; inbrain, kwargs...)
     epochs = selectepochs(session, stim, epoch)
 
+    thesestructures = getprobestructures(session)
     for p in eachindex(probeids)
         if isnothing(times)
             Z = []
@@ -119,10 +117,13 @@ function stimuluspartition(session, probeids, structures, stim; inbrain = 0.0,
                     X = getlfp(session, probeids[p]; inbrain, times = _times) |>
                         rectifytime
                 else
-                    X = getlfp(session, probeids[p], structures[p]; inbrain,
+                    thisstructures = thesestructures[probeids[p]]
+                    thisstructures = structures[structures .∈ [thisstructures]]
+                    X = getlfp(session, probeids[p], thisstructures; inbrain,
                                times = _times) |>
                         rectifytime
                 end
+                X = filter(X)
                 X = alignlfp(session, X, Symbol(epochs[e, :].stimulus_name); kwargs...)
                 push!(Z, X)
             end

@@ -10,6 +10,7 @@ using Foresight
 using TimeseriesTools
 using AllenNeuropixels
 import AllenNeuropixels as AN
+import AllenNeuropixelsBase as ANB
 set_theme!(foresight(:dark))
 
 plotpath = "/home/brendan/OneDrive/Masters/Code/Vortices/Julia/AllenAttention/test/Neuropixels/VisualBehavior/SingleSubject/ThetaBurstBehavior/"
@@ -17,27 +18,31 @@ plotpath = "/home/brendan/OneDrive/Masters/Code/Vortices/Julia/AllenAttention/te
 # * Get data
 begin
     sessionid = 1130113579 # 1067588044 #
-    pass = (3, 10)
+    pass = 10
     fs = 1250
 end
 begin
     session = AN.Session(sessionid)
     probeids = AN.getprobes(session).id
-    _LFP = map(x -> AN.getlfp(session, x; times = 4600 .. 4700), probeids)
+    _LFP = map(x -> AN.getlfp(session, x; times = 4945 .. 4985), probeids)
 end
 begin
     start = 100
-    step = 2
-    N = 2000
-    LFP = AN.rectifytime.(_LFP)
-    LFP = bandpass.(LFP, [pass])
+    step = 4
+    N = 4000
+    LFP = ANB.rectifytime.(_LFP)
+    LFP = lowpass.(LFP, pass)
     LFP = getindex.(LFP, [range(; start, step, length = N)], [:])
     channels = dims.(LFP, 2) .|> collect
+    flashes = AN.getstimuli(session)[AN.getstimuli(session).stimulus_name .== "flash_250ms",
+                                     :]
+    flashes = [Interval(x...) for x in zip(flashes.start_time, flashes.end_time)]
 end
 
 begin # Set up plot
-    f = Figure(; size = (720, 1080), light_direction = Vec3(100000.0, 100000.0, 0.0))
-    ax = Axis3(f[1, 1]; aspect = :data, title = "0 s", titlegap = -100)
+    f = Figure(; size = (1080, 900), light_direction = Vec3(100000.0, 100000.0, 0.0))
+    ax = Axis3(f[1, 1]; aspect = :data, title = "0 s", titlegap = -100,
+               xzpanelvisible = false, yzpanelvisible = false, xypanelvisible = false)
     hidedecorations!(ax)
     ax.xspinesvisible = ax.yspinesvisible = ax.zspinesvisible = false
     probeids, c, p = AN.Plots.plotbrain!(ax, session; dark = false,
@@ -50,7 +55,8 @@ begin # ? Animate activity from an LFP trace. An example is saved in PlotBrain.j
     framerate = 60
     ts = size(LFP[1], 1)
     truets = times(LFP[1])
-    (idxs = indexin(probeids, getindex.(DimensionalData.metadata.(LFP), :probeid)); X = collect.(LFP[idxs])) # Sort to probe order in plot
+    idxs = indexin(probeids, getindex.(DimensionalData.metadata.(LFP), :probeid))
+    X = collect.(LFP[idxs]) # Sort to probe order in plot
 
     Nc = length.([_c[] for _c in c])
 
@@ -69,6 +75,11 @@ begin # ? Animate activity from an LFP trace. An example is saved in PlotBrain.j
         else
             ax.azimuth[] -= 0.0015
             ax.elevation[] -= 0.0005
+        end
+        if any(truets[t] .∈ flashes)
+            f.scene.backgroundcolor[] = darkbg * 2
+        else
+            f.scene.backgroundcolor[] = darkbg
         end
         ax.title[] = "$(round(truets[t], digits=1)) s"
         @logprogress t / Nt
