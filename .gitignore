@@ -43,3 +43,5 @@ old_data
 
 *.mp4
 !PlotBrain.jld2
+
+*.pb.gz
