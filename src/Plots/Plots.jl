@@ -1,5 +1,6 @@
 module Plots
 using ..Makie
+using TimeseriesTools
 # using JSServe
 using Colors
 using Meshing
