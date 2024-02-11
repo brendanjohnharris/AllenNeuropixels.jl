@@ -6,7 +6,6 @@ using DSP
 using FFTW
 using DelayEmbeddings
 using MultivariateStats
-using Wavelets
 using ContinuousWavelets
 using TimeseriesSurrogates
 using HTTP
