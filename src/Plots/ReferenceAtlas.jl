@@ -434,6 +434,15 @@ function _layerplot(session::AN.AbstractSession, channels::AbstractVector{<:Int}
     return layers, depths, unids, dr, cs
 end
 
+function plotlayers!(ax, layers, depths)
+    unids = Int.(indexin(layers, unique(layers)))
+    unids = label_connected_components(unids)
+
+    dr = [0; diff(unids)] .> 0
+    cs = [mean(depths[unids .== x]) for x in unique(unids)]
+    plotlayers!(ax, layers, depths, unids, dr, cs)
+end
+
 function plotlayers!(ax, layers, depths, unids, dr, cs)
     hlines!(ax, collect(depths[dr]) .- 0.5 * step(depths),
             color = (:white, 0.3))
