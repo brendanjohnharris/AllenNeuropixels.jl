@@ -20,33 +20,31 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
             # Get and plot a bunch of structures
             #ids = AN.getallstructureids()
             anns = unique(["FRP", "MO", "SS", "GU", "VISC", "AUD", "ACA", "PL", "ILA",
-                              "ORB", "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF",
-                              "VISp", "VISl", "VISrl", "VISam", "VISpm", "VIS", "VISal",
-                              "VISmma", "VISmmp", "VISli", "LGd", "LD", "LP", "VPM", "TH",
-                              "MGm", "MGv", "MGd", "PO", "LGv", "VL",
-                              "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
-                              "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
-                              "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
-                              "PPT", "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
+                           "ORB", "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF",
+                           "VISp", "VISl", "VISrl", "VISam", "VISpm", "VIS", "VISal",
+                           "VISmma", "VISmmp", "VISli", "LGd", "LD", "LP", "VPM", "TH",
+                           "MGm", "MGv", "MGd", "PO", "LGv", "VL",
+                           "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
+                           "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
+                           "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
+                           "PPT", "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
         elseif ids == :corticaltargets
             anns = unique(["VISp", "VISl", "VISrl", "VISal", "VISpm", "VISam"])
         elseif ids == :targets # As listed in the visual coding white paper
-            anns = unique([
-                              "VISp",
-                              "VISl",
-                              "VISrl",
-                              "VISal",
-                              "VISpm",
-                              "VISam",
-                              "CA1",
-                              "CA3",
-                              "DG",
-                              "SUB",
-                              "ProS",
-                              "LGd",
-                              "LP",
-                              "APN",
-                          ])
+            anns = unique(["VISp",
+                           "VISl",
+                           "VISrl",
+                           "VISal",
+                           "VISpm",
+                           "VISam",
+                           "CA1",
+                           "CA3",
+                           "DG",
+                           "SUB",
+                           "ProS",
+                           "LGd",
+                           "LP",
+                           "APN"])
         else
             @error "`ids` keyword argument not valid "
         end
@@ -275,36 +273,34 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
             # Get and plot a bunch of structures
             #ids = AN.getallstructureids()
             anns = unique(["FRP", "MO", "SS", "GU", "VISC", "AUD", "ACA", "PL", "ILA",
-                              "ORB",
-                              "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF", "VISp",
-                              "VISl",
-                              "VISrl", "VISam", "VISpm", "VIS", "VISal", "VISmma", "VISmmp",
-                              "VISli", "LGd", "LD", "LP", "VPM", "TH", "MGm", "MGv", "MGd",
-                              "PO", "LGv", "VL",
-                              "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
-                              "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
-                              "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
-                              "PPT",
-                              "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
+                           "ORB",
+                           "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF", "VISp",
+                           "VISl",
+                           "VISrl", "VISam", "VISpm", "VIS", "VISal", "VISmma", "VISmmp",
+                           "VISli", "LGd", "LD", "LP", "VPM", "TH", "MGm", "MGv", "MGd",
+                           "PO", "LGv", "VL",
+                           "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
+                           "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
+                           "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
+                           "PPT",
+                           "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
         elseif ids == :corticaltargets
             anns = unique(["VISp", "VISl", "VISrl", "VISal", "VISpm", "VISam"])
         elseif ids == :targets # As listed in the visual coding white paper
-            anns = unique([
-                              "VISp",
-                              "VISl",
-                              "VISrl",
-                              "VISal",
-                              "VISpm",
-                              "VISam",
-                              "CA1",
-                              "CA3",
-                              "DG",
-                              "SUB",
-                              "ProS",
-                              "LGd",
-                              "LP",
-                              "APN",
-                          ])
+            anns = unique(["VISp",
+                           "VISl",
+                           "VISrl",
+                           "VISal",
+                           "VISpm",
+                           "VISam",
+                           "CA1",
+                           "CA3",
+                           "DG",
+                           "SUB",
+                           "ProS",
+                           "LGd",
+                           "LP",
+                           "APN"])
         else
             @error "`ids` keyword argument not valid "
         end
