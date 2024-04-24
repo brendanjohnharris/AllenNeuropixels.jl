@@ -248,9 +248,9 @@ function widen(x, δ = 0.5; upperbound = [Inf, Inf])
     @assert length(x[1]) == length(x[2]) == 2
     Δ = [x[2][1] - x[1][1], x[2][2] - x[1][2]]
     return [
-        max.(1, floor.(Int, x[1] .- δ .* Δ)),
-        min.(upperbound, ceil.(Int, x[2] .+ δ .* Δ)),
-    ]
+            max.(1, floor.(Int, x[1] .- δ .* Δ)),
+            min.(upperbound, ceil.(Int, x[2] .+ δ .* Δ))
+            ]
 end
 
 function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 2,
@@ -699,7 +699,7 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, phifreqs = 1:1:100
         :burst_rate,
         :nonburst_rate,
         :rate_index,
-        :phase_synchrony,
+        :phase_synchrony
     ]
     # if !isnothing(phi)
     #     append!(cols, [:phase_synchrony])
@@ -735,7 +735,7 @@ function burstspikestats(B, Sp, channels; sessionid, probeid, phifreqs = 1:1:100
                 burst,
                 nonburst,
                 rate_index,
-                phase_synchrony,
+                phase_synchrony
             ]
         end
         push!(stats, topush)
