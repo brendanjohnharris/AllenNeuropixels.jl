@@ -1,3 +1,4 @@
+
 rotatereferenceatlas = x -> reverse(permutedims(x, (1, 3, 2)), dims = (3,))
 # Plot the reference volume and probe locations
 function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targets,
@@ -20,31 +21,31 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
             # Get and plot a bunch of structures
             #ids = AN.getallstructureids()
             anns = unique(["FRP", "MO", "SS", "GU", "VISC", "AUD", "ACA", "PL", "ILA",
-                           "ORB", "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF",
-                           "VISp", "VISl", "VISrl", "VISam", "VISpm", "VIS", "VISal",
-                           "VISmma", "VISmmp", "VISli", "LGd", "LD", "LP", "VPM", "TH",
-                           "MGm", "MGv", "MGd", "PO", "LGv", "VL",
-                           "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
-                           "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
-                           "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
-                           "PPT", "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
+                              "ORB", "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF",
+                              "VISp", "VISl", "VISrl", "VISam", "VISpm", "VIS", "VISal",
+                              "VISmma", "VISmmp", "VISli", "LGd", "LD", "LP", "VPM", "TH",
+                              "MGm", "MGv", "MGd", "PO", "LGv", "VL",
+                              "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
+                              "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
+                              "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
+                              "PPT", "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
         elseif ids == :corticaltargets
             anns = unique(["VISp", "VISl", "VISrl", "VISal", "VISpm", "VISam"])
         elseif ids == :targets # As listed in the visual coding white paper
             anns = unique(["VISp",
-                           "VISl",
-                           "VISrl",
-                           "VISal",
-                           "VISpm",
-                           "VISam",
-                           "CA1",
-                           "CA3",
-                           "DG",
-                           "SUB",
-                           "ProS",
-                           "LGd",
-                           "LP",
-                           "APN"])
+                              "VISl",
+                              "VISrl",
+                              "VISal",
+                              "VISpm",
+                              "VISam",
+                              "CA1",
+                              "CA3",
+                              "DG",
+                              "SUB",
+                              "ProS",
+                              "LGd",
+                              "LP",
+                              "APN"])
         else
             @error "`ids` keyword argument not valid "
         end
@@ -148,11 +149,11 @@ function mesh2vertfaces(m)
     return (verts, faces)
 end
 
-ccftransform(x) = [1 0 0
-                   0 0 1
-                   0 -1 0] * collect(x)
-function ccftransform(m::GeometryBasics.Mesh)
-    m.position .= ccftransform.(m.position)
+ccftransform(x; scale = 1) = scale .* [1 0 0;
+                                       0 0 1
+                                       0 -1 0] * collect(x)
+function ccftransform(m::GeometryBasics.Mesh; kwargs...)
+    m.position .= ccftransform.(m.position; kwargs...)
     return m
 end
 
@@ -177,8 +178,9 @@ p = AN.Plots.plotbrainstructure!(ax, id; hemisphere=:both)
 ```
 """
 function plotbrainstructure!(ax, id; hemisphere = :both, alpha = 0.41, color = :atlas,
+                             scale = 1,
                              kwargs...)
-    m = ANB.getstructuremesh(id; hemisphere) |> ccftransform
+    m = ccftransform(ANB.getstructuremesh(id; hemisphere); scale)
     if color === :atlas
         c = AN.getstructurecolor(id)
     elseif color isa Symbol
@@ -273,34 +275,34 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
             # Get and plot a bunch of structures
             #ids = AN.getallstructureids()
             anns = unique(["FRP", "MO", "SS", "GU", "VISC", "AUD", "ACA", "PL", "ILA",
-                           "ORB",
-                           "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF", "VISp",
-                           "VISl",
-                           "VISrl", "VISam", "VISpm", "VIS", "VISal", "VISmma", "VISmmp",
-                           "VISli", "LGd", "LD", "LP", "VPM", "TH", "MGm", "MGv", "MGd",
-                           "PO", "LGv", "VL",
-                           "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
-                           "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
-                           "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
-                           "PPT",
-                           "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
+                              "ORB",
+                              "AI", "RSP", "PTLp", "TEa", "PERI", "ECT", "OLF", "VISp",
+                              "VISl",
+                              "VISrl", "VISam", "VISpm", "VIS", "VISal", "VISmma", "VISmmp",
+                              "VISli", "LGd", "LD", "LP", "VPM", "TH", "MGm", "MGv", "MGd",
+                              "PO", "LGv", "VL",
+                              "VPL", "POL", "Eth", "PoT", "PP", "PIL", "IntG", "IGL", "SGN",
+                              "VPL", "PF", "RT", "CA1", "CA2", "CA3", "DG", "SUB", "POST",
+                              "PRE", "ProS", "HPF", "MB", "SCig", "SCiw", "SCsg", "SCzo",
+                              "PPT",
+                              "APN", "NOT", "MRN", "OP", "LT", "RPF", "CP"])
         elseif ids == :corticaltargets
             anns = unique(["VISp", "VISl", "VISrl", "VISal", "VISpm", "VISam"])
         elseif ids == :targets # As listed in the visual coding white paper
             anns = unique(["VISp",
-                           "VISl",
-                           "VISrl",
-                           "VISal",
-                           "VISpm",
-                           "VISam",
-                           "CA1",
-                           "CA3",
-                           "DG",
-                           "SUB",
-                           "ProS",
-                           "LGd",
-                           "LP",
-                           "APN"])
+                              "VISl",
+                              "VISrl",
+                              "VISal",
+                              "VISpm",
+                              "VISam",
+                              "CA1",
+                              "CA3",
+                              "DG",
+                              "SUB",
+                              "ProS",
+                              "LGd",
+                              "LP",
+                              "APN"])
         else
             @error "`ids` keyword argument not valid "
         end
@@ -389,8 +391,10 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
         return (_c, _p)
     end
 
-    ax.azimuth[] = 2.25
-    ax.elevation[] = 0.2
+    if ax isa Axis
+        ax.azimuth[] = 2.25
+        ax.elevation[] = 0.2
+    end
     return (first.(collect(findchannels)), first.(cp), last.(cp)) # The first are the color observables, the rest are the probes plots
 end
 
