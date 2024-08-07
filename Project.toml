@@ -43,7 +43,6 @@ ModernGL = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
 MultivariateStats = "6f286f6a-111f-5878-ab1e-185364afe411"
 NWBStream = "5982c9a4-5774-4415-9796-801a4f82b4d6"
 Observables = "510215fc-4207-5dde-b226-833fc4488ee2"
-Pandas = "eadc2687-ae89-51f9-a5d9-86b5a6373a9c"
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 ProgressLogging = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
 PyFOOOF = "bb993ee8-2a51-46a1-a315-55ff424041b4"
@@ -60,6 +59,9 @@ TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 TimeseriesSurrogates = "c804724b-8c18-5caa-8579-6025a0767c70"
 TimeseriesTools = "380cddd1-6ef2-46ca-b087-e7151fb095ff"
 Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
+
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [compat]
 AllenNeuropixelsBase = "0.1"
@@ -90,13 +92,13 @@ Interpolations = "0.3.6, 0.4, 0.9, 0.10.1, 0.11, 0.12, 0.13, 0.14, 0.15"
 IntervalSets = "0.6, 0.7"
 JSON = "0.20, 0.21"
 LsqFit = "0.5 - 0.15"
+Makie = "0.2, 0.21"
 MeshIO = "0.4"
 Meshing = "0.5, 0.6"
 ModernGL = "1"
 MultivariateStats = "0.5 - 0.10"
 NWBStream = "0.1"
 Observables = "0.5"
-Pandas = "1"
 Preferences = "1"
 ProgressLogging = "0.1"
 PyFOOOF = "0.2"
@@ -110,12 +112,7 @@ TimeZones = "1"
 TimeseriesSurrogates = "2"
 TimeseriesTools = "0.3.0"
 Wavelets = "0.9, 0.10"
-Makie = "0.2, 0.21"
 julia = "1.8"
-
-
-[weakdeps]
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [extras]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
