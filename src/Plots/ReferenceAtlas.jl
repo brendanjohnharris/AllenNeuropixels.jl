@@ -94,7 +94,8 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
                     mask = AN.buildstructuremask(id)
                 end
                 mask = Array{Float64}(rotatereferenceatlas(mask)[1:2:end, 1:2:end, 1:2:end])
-                mc_algo = NaiveSurfaceNets(iso = 0, insidepositive = true)
+                # mc_algo = NaiveSurfaceNets(iso = 0, insidepositive = true)
+                mc_algo = MarchingCubes(iso = 0, insidepositive = true)
                 m = GeometryBasics.Mesh(mask, mc_algo;
                                         origin = [min(coords[i]...)
                                                   for i in 1:length(coords)],
@@ -249,22 +250,24 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
                       shading,
                       transparency = true,
                       ssao = true,
-                      interpolate = true,
-                      ambient = Vec3f(0.1),
-                      specular = Vec3f(2.0),
-                      diffuse = Vec3f(0.1),
-                      shininess = Float32(100.0), meshparams...)
+                    #   interpolate = true,
+                    #   ambient = Vec3f(0.1),
+                    #   specular = Vec3f(2.0),
+                    #   diffuse = Vec3f(0.1),
+                    #   shininess = Float32(100.0),
+                      meshparams...)
         rootalpha = 0.05
     else
         meshparams = (; fxaa = true,
                       shading,
                       transparency = true,
                       ssao = true,
-                      interpolate = true,
-                      ambient = Vec3f(0.5),
-                      specular = Vec3f(0.2),
-                      diffuse = Vec3f(0.2),
-                      shininess = Float32(50.0), meshparams...)
+                    #   interpolate = true,
+                    #   ambient = Vec3f(0.5),
+                    #   specular = Vec3f(0.2),
+                    #   diffuse = Vec3f(0.2),
+                    #   shininess = Float32(50.0),
+                      meshparams...)
         rootalpha = 0.1
     end
     vol = Array{Float16}(vol)
