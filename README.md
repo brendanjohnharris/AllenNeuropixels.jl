@@ -11,4 +11,4 @@ This package contains high-level analysis and visualization tools for the Allen 
 It also re-exports low-level functions for accessing and formatting the data ([AllenNeuropixelsBase.jl](https://www.github.com/brendanjohnharris/AllenNeuropixelsBase.jl)) and bindings to the Python [AllenSDK](https://github.com/AllenInstitute/AllenSDK) ([AllenSDK.jl](https://www.github.com/brendanjohnharris/AllenSDK.jl)).
 
 
-![PlotBrain](plotbrain)
+![PlotBrain](plotbrain.png)
