@@ -64,8 +64,8 @@ Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [compat]
-AllenNeuropixelsBase = "0.1"
-AllenSDK = "0.1"
+AllenNeuropixelsBase = "0.2"
+AllenSDK = "0.2"
 CSV = "0.5 - 0.10"
 Clustering = "0.15"
 Colors = "0.1 - 0.12"
