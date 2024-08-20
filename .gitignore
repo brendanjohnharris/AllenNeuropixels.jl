@@ -42,5 +42,5 @@ old_data
 
 *.mp4
 *.gif
-
+..bfg-report/
 *.pb.gz
