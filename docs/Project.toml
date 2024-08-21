@@ -1,4 +1,4 @@
 [deps]
-AllenNeuropixels = "f284aabc-4115-48c2-b029-2c7cdac6b9c7"
+AllenNeuropixels = "c7dbd8d7-5c13-4dcb-90e2-bff79a096f56"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
