@@ -1,7 +1,6 @@
 module AllenNeuropixels
 using PythonCall
 using Preferences
-using Conda
 using DataFrames
 using Dates
 using TimeZones
