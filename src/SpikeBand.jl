@@ -4,10 +4,10 @@ using Random
 using SparseArrays
 
 function lfpspikesimilarity(X::LFPVector, Y::Vector; normalize = identity)
-    ts = Interval(extrema(dims(X, Ti))...)
+    ts = Interval(extrema(dims(X, 𝑡))...)
     Y = Y[Y .∈ (ts,)]
     X = normalize(X)
-    return mean(X[Ti(Near(Y))]) # Mean value of the LFP at each spike time
+    return mean(X[𝑡(Near(Y))]) # Mean value of the LFP at each spike time
 end
 
 function lfpspikesimilarity(session, probeid, X::LFPMatrix, Y::Dict; normalize = identity,
@@ -20,9 +20,9 @@ function lfpspikesimilarity(session, probeid, X::LFPMatrix, Y::Dict; normalize =
     idxs = sortperm(depths)
     X = X[:, idxs]
     depths = depths[idxs]
-    X = DimArray(X, (dims(X, Ti), Dim{:depth}(depths)))
+    X = DimArray(X, (dims(X, 𝑡), Depth(depths)))
     unitdepths = getunitdepths(session, probeid, units)
-    X = X[Dim{:depth}(Near(unitdepths))] # Sorted in order of spikes
+    X = X[Depth(Near(unitdepths))] # Sorted in order of spikes
     sims = [lfpspikesimilarity(X[:, i], spikes[i]; kwargs...) for i in eachindex(spikes)]
     return Dict(units .=> sims)
 end
@@ -39,10 +39,10 @@ function pairspikelfp(session, structure, spikes, X::LFPMatrix)
     idxs = sortperm(depths)
     X = X[:, idxs]
     depths = depths[idxs]
-    X = DimArray(X, (dims(X, Ti), Dim{:depth}(depths)))
+    X = DimArray(X, (dims(X, 𝑡), Depth(depths)))
     unitdepths = getunitdepths(session, probeid, units)
-    X = X[Dim{:depth}(Near(unitdepths))] # Sorted in order of spikes
-    int = Interval(extrema(dims(X, Ti))...)
+    X = X[Depth(Near(unitdepths))] # Sorted in order of spikes
+    int = Interval(extrema(dims(X, 𝑡))...)
     spikes = [s[s .∈ (int,)] for s in spikes]
     idxs = .!isempty.(spikes)
     spikes = spikes[idxs]
