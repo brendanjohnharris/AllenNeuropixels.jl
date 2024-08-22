@@ -77,7 +77,7 @@ end
 # stimulus(B::Burst) = hasfield(B.mask.metadata, :stimulus) ? B.mask.metadata[:stimulus] : nothing
 # structure(B::Burst) = hasfield(B.mask.metadata, :structure) ? B.mask.metadata[:structure] : nothing
 # sessionid(B::Burst) = hasfield(B.mask.metadata, :sessionid) ? B.mask.metadata[:sessionid] : nothing
-# channel(B::Burst) = hasfield(B.mask.metadata, :channel) ? B.mask.metadata[:channel] : nothing
+# channel(B::Burst) = hasfield(B.mask.metadata, nnnel) ? B.mask.metadata[:channel] : nothing
 # probeid(B::Burst) = hasfield(B.mask.metadata, :probeid) ? B.mask.metadata[:probeid] : nothing
 function _burstsubset(B, σ)
     channel = getchannel(B)
