@@ -1,4 +1,4 @@
-# AllenNeuropixels
+# AllenNeuropixels.jl
 
 <!-- [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://brendanjohnharris.github.io/AllenNeuropixels.jl/stable/) -->
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://brendanjohnharris.github.io/AllenNeuropixels.jl/dev/)
