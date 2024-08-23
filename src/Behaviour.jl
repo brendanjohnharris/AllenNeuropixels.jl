@@ -4,7 +4,7 @@ function getrunningspeed(S::AbstractSession)
     f = h5open(getfile(S), "r")
     r = f["processing"]["running"]["running_speed"]["data"] |> read
     ts = f["processing"]["running"]["running_speed"]["timestamps"] |> read
-    return DimArray(r, (𝑡(ts),); metadata = Dict(:sessionid => getid(S)))
+    return ToolsArray(r, (𝑡(ts),); metadata = Dict(:sessionid => getid(S)))
 end
 
 function smoothrunningspeed(S::AbstractSession; windowfunc = hanning, window = 1)
@@ -16,7 +16,7 @@ function smoothrunningspeed(S::AbstractSession; windowfunc = hanning, window = 1
     w = w ./ sum(w) # Normalized wavelet. Outputs after convolution become averages
     x = DSP.conv(r, w)
     x = x[(n ÷ 2):(end - n ÷ 2)]
-    return DimArray(x, (𝑡(collect(ts)),), metadata = r.metadata)
+    return ToolsArray(x, (𝑡(collect(ts)),), metadata = r.metadata)
 end
 
 smoothrunningspeed(s::Integer; kwargs...) = smoothrunningspeed(Session(s); kwargs...)
@@ -30,7 +30,7 @@ function stimulustrace(S::AbstractSession, feature, times)
     idxs = s .!= "null"
     x[idxs] .= Meta.parse.(s[idxs])
     t = mean.(zip(df.start_time, df.stop_time))
-    return DimArray(x, (𝑡(t),))
+    return ToolsArray(x, (𝑡(t),))
 end
 
 function stimulustrace(S::AbstractSession, feature, times::AbstractRange)
@@ -46,7 +46,7 @@ end
 function interpmatch(x::LFPVector, ts::AbstractRange)
     f = Spline1D(collect(dims(x, 𝑡)), x)
     x̂ = f(ts)
-    return DimArray(x̂, (𝑡(ts),); metadata = x.metadata)
+    return ToolsArray(x̂, (𝑡(ts),); metadata = x.metadata)
 end
 
 """

@@ -36,14 +36,14 @@ function slidingcarpet(x, y, Z; size = (800, 800), kwargs...)
 end
 export slidingcarpet
 
-function slidingcarpet(X::DimArray; size = (800, 400), kwargs...)
+function slidingcarpet(X::ToolsArray; size = (800, 400), kwargs...)
     x = dims(X, 𝑡).val
     y = dims(X, Chan).val
     Z = Array(X)
     slidingcarpet(x, y, Z; size = size, kwargs...)
 end
 
-function neuroslidingcarpet(X::DimArray; size = (800, 400), kwargs...)
+function neuroslidingcarpet(X::ToolsArray; size = (800, 400), kwargs...)
     time = dims(X, 𝑡).val
     channels = AN.getstructureacronyms(Meta.parse.(string.(dims(X, Chan).val)))
     fig = slidingcarpet(time, channels, X .- mean(Array(X), dims = 1);
@@ -100,7 +100,7 @@ function powerlawfit(_psd::AN.PSDMatrix)
     return c, r, f
 end
 
-function plotLFPspectra(LFP::AbstractDimArray; slope = nothing,
+function plotLFPspectra(LFP::AbstractToolsArray; slope = nothing,
                         position = Point2f([5, 1e-5]), fs = nothing, N = 500,
                         slopecolor = :crimson, kwargs...)
     times = collect(dims(LFP, 𝑡))
@@ -116,7 +116,7 @@ function plotLFPspectra(LFP::AbstractDimArray; slope = nothing,
     frq = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p in P]...)
     psd = psd ./ (sum(psd, dims = 1) .* (frq[2] - frq[1]))
-    psd = DimArray(psd, (𝑓(frq), dims(LFP, Chan)))
+    psd = ToolsArray(psd, (𝑓(frq), dims(LFP, Chan)))
     fig = traces(frq, Array(psd); xlabel = "frq (Hz)", ylabel = "Ŝ",
                  title = "Normalised power spectral density", smooth = 1,
                  yscale = Makie.log10, xscale = Makie.log10, doaxis = false, domean = false,
@@ -132,7 +132,7 @@ function plotLFPspectra(LFP::AbstractDimArray; slope = nothing,
     return fig
 end
 
-function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope = nothing,
+function plotLFPspectra(session, probeid, LFP::AbstractToolsArray; slope = nothing,
                         position = Point2f([5, 1e-5]), slopecolor = :crimson, kwargs...)
     # Calculate the power spectrum of each column of the LFP array
     times = collect(dims(LFP, 𝑡))
@@ -148,7 +148,7 @@ function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope = nothing
     frq = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p in P]...)
     psd = psd ./ (sum(psd, dims = 1) .* (frq[2] - frq[1]))
-    psd = DimArray(psd, (𝑓(frq), dims(LFP, Chan)))
+    psd = ToolsArray(psd, (𝑓(frq), dims(LFP, Chan)))
     depths = ANB.getchanneldepths(session, probeid, collect(dims(psd, Chan)))
     fig = traces(frq, Array(psd); tracez = -depths, xlabel = "frq (Hz)", ylabel = "Ŝ",
                  title = "Normalised power spectral density", clabel = "Depth", smooth = 1,
@@ -180,7 +180,7 @@ function plotLFPspectra(session, probeids::Vector, LFP::Vector; slopecolor = not
         P = [fp(Array(x)) for x in eachcol(LFP)]
         psd = hcat([p.power for p in P]...)
         psd = psd ./ (sum(psd, dims = 1) .* (frq[2] - frq[1]))
-        A[x] = DimArray(psd, (𝑓(frq), dims(LFP, Chan)))
+        A[x] = ToolsArray(psd, (𝑓(frq), dims(LFP, Chan)))
     end
     depths = [ANB.getchanneldepths(session, probeids[x], collect(dims(A[x], Chan)))
               for x in 1:length(probeids)]

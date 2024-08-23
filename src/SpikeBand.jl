@@ -20,7 +20,7 @@ function lfpspikesimilarity(session, probeid, X::LFPMatrix, Y::Dict; normalize =
     idxs = sortperm(depths)
     X = X[:, idxs]
     depths = depths[idxs]
-    X = DimArray(X, (dims(X, 𝑡), Depth(depths)))
+    X = ToolsArray(X, (dims(X, 𝑡), Depth(depths)))
     unitdepths = getunitdepths(session, probeid, units)
     X = X[Depth(Near(unitdepths))] # Sorted in order of spikes
     sims = [lfpspikesimilarity(X[:, i], spikes[i]; kwargs...) for i in eachindex(spikes)]
@@ -39,7 +39,7 @@ function pairspikelfp(session, structure, spikes, X::LFPMatrix)
     idxs = sortperm(depths)
     X = X[:, idxs]
     depths = depths[idxs]
-    X = DimArray(X, (dims(X, 𝑡), Depth(depths)))
+    X = ToolsArray(X, (dims(X, 𝑡), Depth(depths)))
     unitdepths = getunitdepths(session, probeid, units)
     X = X[Depth(Near(unitdepths))] # Sorted in order of spikes
     int = Interval(extrema(dims(X, 𝑡))...)

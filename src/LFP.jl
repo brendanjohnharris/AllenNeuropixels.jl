@@ -22,7 +22,7 @@ function bandpass(x::LFPVector; pass, designmethod = Butterworth(4))
     T = t isa AbstractRange ? step(t) : t |> collect |> diff |> mean
     fs = 1.0 / T
     y = filtfilt(digitalfilter(Bandpass(pass...; fs), designmethod), x)
-    return DimArray(y, dims(x))
+    return ToolsArray(y, dims(x))
 end
 
 function bandpass(X::LFPMatrix, dim = Chan; kwargs...)
@@ -53,7 +53,7 @@ narrowbandfilter(args...; pass = [50, 60], kwargs...) = bandpass(args...; pass, 
 #     display(_pass)
 #     # ..................then also need the stop bands..............
 #     y = filtfilt(remez(35, [p => 1 for p in _pass]; Hz=fs), collect(x))
-#     return DimArray(y, dims(x))
+#     return ToolsArray(y, dims(x))
 # end
 
 # function bandpass(X::LFPMatrix, dim=Chan; kwargs...)
@@ -226,18 +226,18 @@ end
 
 function ica(X::LFPMatrix, k = ceil(Int, size(X, 2) / 2))
     I = fit(ICA, collect(X)', k; maxiter = 1000)
-    _X = DimArray(predict(I, collect(X)')', (dims(X, 𝑡), Chan(1:size(I, 2))))
+    _X = ToolsArray(predict(I, collect(X)')', (dims(X, 𝑡), Chan(1:size(I, 2))))
 end
 
 function pca(X::LFPMatrix)
     P = fit(PCA, collect(X)')
-    _X = DimArray(predict(P, collect(X)')', (dims(X, 𝑡), Chan(1:size(P, 2))))
+    _X = ToolsArray(predict(P, collect(X)')', (dims(X, 𝑡), Chan(1:size(P, 2))))
     v = principalvars(P)
     return _X, v
 end
 
 DSP.hilbert(X::LFPMatrix) = mapslices(hilbert, X, dims = 𝑡)
-DSP.hilbert(X::LFPVector) = DimArray(hilbert(X |> Array), dims(X); refdims = refdims(X))
+DSP.hilbert(X::LFPVector) = ToolsArray(hilbert(X |> Array), dims(X); refdims = refdims(X))
 
 #!!!!!!!!!!!!!!!!!
 function _waveletfreqs(t; moth = Morlet(2π), β = 1, Q = 32)
@@ -279,8 +279,8 @@ function _wavelettransform(x::LFPVector; rectify = true, moth = Morlet(2π), β 
     t = dims(x, 𝑡)
     res = _wavelettransform(t, x |> Array; moth, β, Q, pass)
     freqs = waveletfreqs(t; moth, β, Q, pass)
-    res = DimArray(res, (t, 𝑓(freqs)); metadata = DimensionalData.metadata(x),
-                   refdims = refdims(x))
+    res = ToolsArray(res, (t, 𝑓(freqs)); metadata = DimensionalData.metadata(x),
+                     refdims = refdims(x))
     if !isnothing(pass)
         res = res[𝑓(Interval(extrema(pass)...))]
     end
@@ -300,8 +300,8 @@ function _wavelettransform(x::LFPVector, ::Val{:mmap}; window = 50000, kwargs...
     s = open(fname, "w+")
     write.((s,), sz)
     W = mmap(s, Matrix{ComplexF32}, sz)
-    res = DimArray(W, (t, 𝑓(freqs)); metadata = (; md..., file = fname),
-                   refdims = rd)
+    res = ToolsArray(W, (t, 𝑓(freqs)); metadata = (; md..., file = fname),
+                     refdims = rd)
     threadlog, threadmax = (0, length(𝓍))
     @withprogress name="Wavelet transform" begin
         for _x in 𝓍
@@ -381,7 +381,7 @@ function fooofedwavelet!(res::LogWaveletMatrix, freqrange = [1.0, 300.0]; kwargs
     # Makie.lines!(ax, 10.0.^ffreqs[10:end], (L.(ffreqs)[10:end]), color=:crimson)
     # f
     # Makie.lines(ffreqs[10:end], psd[:][10:end].-L.(ffreqs)[10:end], color=:cornflowerblue)
-    l = DimArray(L.(ffreqs), (Log𝑓(ffreqs),))
+    l = ToolsArray(L.(ffreqs), (Log𝑓(ffreqs),))
     fmin = log10(minimum(freqrange))
     l[ffreqs .< fmin] = psd[ffreqs .< fmin] # Ensures no funky behavior outside of the fit bounds
     for r in axes(res, 𝑡)
@@ -445,7 +445,7 @@ function wavelettransform(X::LFPMatrix; kwargs...)
     ti = dims(res[1], 1)
     freq = dims(res[1], 2)
     channel = dims(X, 2)
-    return DimArray(cat(collect.(res)..., dims = 3), (ti, freq, channel))
+    return ToolsArray(cat(collect.(res)..., dims = 3), (ti, freq, channel))
 end
 
 mmapwavelettransform(x::LFPVector; kwargs...) = wavelettransform(x, :mmap; kwargs...)
@@ -464,7 +464,7 @@ function wavelettransform!(res::Dict, LFP::LFPMatrix; window = false, kwargs...)
                 s = open(tempname(), "w+")
                 write.((s,), sz)
                 W = mmap(s, Matrix{Float32}, sz)
-                _res = DimArray(W, (t, 𝑓(freqs)))
+                _res = ToolsArray(W, (t, 𝑓(freqs)))
                 for _x in 𝓍
                     subres = wavelettransform(_x; kwargs...)
                     tx = extrema(dims(subres, 1))
@@ -488,7 +488,7 @@ end
 
 function TimeseriesSurrogates.surrogenerator(x::LFPVector, S::IAAFT)
     sg = surrogenerator(x |> collect .|> Float64, S)
-    return () -> DimArray(sg() .|> eltype(x), dims(x))
+    return () -> ToolsArray(sg() .|> eltype(x), dims(x))
 end
 function TimeseriesSurrogates.surrogenerator(X::LFPMatrix, S::IAAFT)
     sg = [surrogenerator(x |> collect .|> Float64, S) for x in eachcol(X)]
@@ -513,7 +513,7 @@ end
 
 function powerspectra(t, x, X; kwargs...)
     frq, psd = powerspectra(t, X; kwargs...)
-    psd = DimArray(psd, (𝑓(frq), Chan(x)))
+    psd = ToolsArray(psd, (𝑓(frq), Chan(x)))
 end
 
 function powerspectra(X::LFPMatrix; kwargs...)
@@ -525,7 +525,7 @@ end
 function powerspectra(x::LFPVector; kwargs...)
     t = dims(x, 𝑡) |> collect
     frq, psd = powerspectra(t, collect(x); kwargs...)
-    psd = DimArray(psd[:], (𝑓(frq),))
+    psd = ToolsArray(psd[:], (𝑓(frq),))
 end
 
 function mutualinfo(x, y, est; base = 2, α = 1)

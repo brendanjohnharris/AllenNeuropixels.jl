@@ -13,7 +13,7 @@ function rbfdistance(x::AbstractVector, y::AbstractVector; σ, δ = 3σ)
     I = f.(t⃗) |> sum
 end
 
-function rbfdistance(x::AbstractSparseDimArray, y::AbstractSparseDimArray; kwargs...)
+function rbfdistance(x::AbstractSparseToolsArray, y::AbstractSparseToolsArray; kwargs...)
     ix, iy = (x, y) .|> SparseVector .|> findnz .|> first
     x = dims(x, 𝑡)[ix] |> collect
     y = dims(y, 𝑡)[iy] |> collect

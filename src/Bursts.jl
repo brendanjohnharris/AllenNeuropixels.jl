@@ -397,7 +397,7 @@ function detectbursts(x::LFPVector; kwargs...) # surrodur=min(length(x), round(I
     # # γₛ = gammafilter(s; pass)
     # res = wavelettransform(γₛ)
     # agg = [getindex.(res, (i,)) for i in CartesianIndices(res[1])]
-    # agg = DimArray(agg, dims(res[1]))
+    # agg = ToolsArray(agg, dims(res[1]))
     # σ = mapslices(std, res, dims=1)
     # μ = mapslices(mean, res, dims=1)
 
@@ -509,7 +509,7 @@ function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
     fit = LsqFit.curve_fit(gaussian2!, xy, z, p0; inplace = true, autodiff = :forwarddiff)
 end
 
-function fitdiagonalgaussian(mask::AbstractDimArray)
+function fitdiagonalgaussian(mask::AbstractToolsArray)
     frq = dims(mask, 2)
     t = dims(mask, 1)
     f = fitdiagonalgaussian(t, frq, mask |> Array)
@@ -867,8 +867,8 @@ end
 function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number; kwargs...)
     channels = keys(ℬ) |> collect
     units = keys(Sp) |> collect
-    γ = DimArray(collect(zeros(length(channels), length(units))),
-                 (Chan(channels), Unit(units)))
+    γ = ToolsArray(collect(zeros(length(channels), length(units))),
+                   (Chan(channels), Unit(units)))
     𝑝 = deepcopy(γ)
     Threads.@threads for (i, b) in collect(enumerate(values(ℬ)))
         for (j, s) in enumerate(values(Sp))
@@ -885,8 +885,8 @@ function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where {T}, 
                            kwargs...)
     channels = keys(ℬ) |> collect
     units = keys(phi) |> collect
-    γ = DimArray(collect(zeros(length(channels), length(units))),
-                 (Chan(channels), Chan(units)))
+    γ = ToolsArray(collect(zeros(length(channels), length(units))),
+                   (Chan(channels), Chan(units)))
     𝑝 = deepcopy(γ)
     @withprogress name="LFP-LFP phase-locking index" begin
         threadlog, threadmax = (0, length(values(ℬ)))
@@ -993,7 +993,7 @@ function gaussianmask(B...; ts = nothing, fs = nothing, span = 3)
     end
     masks = []
     for ℬ in B
-        mask = DimArray(zeros(length(ts), length(fs)), (𝑡(ts), Log𝑓(fs)))
+        mask = ToolsArray(zeros(length(ts), length(fs)), (𝑡(ts), Log𝑓(fs)))
         for b in ℬ
             tt = dims(mask, 𝑡)
             tt = tt[tt .∈ (timeinterval(b, span),)]
@@ -1096,12 +1096,13 @@ function randomisebursts(BS::BurstVector)
     for (i, B) in enumerate(ℬ)
         t0 = B.peak[1]
         _t = B.mask.dims[1].val.data .- t0 .+ ts[i]
-        B.mask = DimArray(B.mask.data, (𝑡(_t), B.mask.dims[2]))
+        B.mask = ToolsArray(B.mask.data, (𝑡(_t), B.mask.dims[2]))
         B.peak = (B.peak[1] - t0 + ts[i], B.peak[2], B.peak[3])
         if hasfield(typeof(B), :phasemask)
-            B.phasemask = DimArray(B.phasemask.data, (𝑡(_t), B.phasemask.dims[2]))
+            B.phasemask = ToolsArray(B.phasemask.data, (𝑡(_t), B.phasemask.dims[2]))
         elseif ndims(B.significance) == 2 # backards compat
-            B.significance = DimArray(B.significance.data, (𝑡(_t), B.significance.dims[2]))
+            B.significance = ToolsArray(B.significance.data,
+                                        (𝑡(_t), B.significance.dims[2]))
         end
     end
     # [B.mask.dims[1].val.data = B.mask.dims[1].val.data .- ts[i] for (i, B) in enumerate(ℬ)]

@@ -4,7 +4,7 @@ function convolvespikes(dt::Number, s::Vector; window, windowfunc = hanning)
     w = w ./ sum(w) ./ dt # Normalize the window so that each spike contributes '1' rate. Is this right?
     # Assume the window is dt*n wide
     ts = (minimum(s) - dt * (n - 1) / 2):dt:(maximum(s) + dt * (n - 1) / 2)
-    x = DimArray(zeros(length(ts)), (𝑡(ts),))
+    x = ToolsArray(zeros(length(ts)), (𝑡(ts),))
     for t in s
         t = ts[findmin(abs.(ts .- t))[2]] # Centre of the window
         windowinds = (t - dt * (n - 1) // 2):dt:(t + dt * (n - 1) // 2 + dt / 10)
