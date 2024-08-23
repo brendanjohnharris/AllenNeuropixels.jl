@@ -37,15 +37,15 @@ end
 export slidingcarpet
 
 function slidingcarpet(X::DimArray; size = (800, 400), kwargs...)
-    x = dims(X, Ti).val
-    y = dims(X, :channel).val
+    x = dims(X, 𝑡).val
+    y = dims(X, Chan).val
     Z = Array(X)
     slidingcarpet(x, y, Z; size = size, kwargs...)
 end
 
 function neuroslidingcarpet(X::DimArray; size = (800, 400), kwargs...)
-    time = dims(X, Ti).val
-    channels = AN.getstructureacronyms(Meta.parse.(string.(dims(X, :channel).val)))
+    time = dims(X, 𝑡).val
+    channels = AN.getstructureacronyms(Meta.parse.(string.(dims(X, Chan).val)))
     fig = slidingcarpet(time, channels, X .- mean(Array(X), dims = 1);
                         size = size, kwargs...)
 end
@@ -88,8 +88,8 @@ end
 export traces
 
 function powerlawfit(_psd::AN.PSDMatrix)
-    y = log10.(mean(_psd, dims = Dim{:channel}))
-    x = dims(_psd, Freq) |> collect
+    y = log10.(mean(_psd, dims = Chan))
+    x = dims(_psd, 𝑓) |> collect
     x = repeat(log10.(x), 1, size(y, 2))
     y = Array(y)[:] # Flatten for regression
     x = x[:]
@@ -103,7 +103,7 @@ end
 function plotLFPspectra(LFP::AbstractDimArray; slope = nothing,
                         position = Point2f([5, 1e-5]), fs = nothing, N = 500,
                         slopecolor = :crimson, kwargs...)
-    times = collect(dims(LFP, Ti))
+    times = collect(dims(LFP, 𝑡))
     if isnothing(fs)
         Δt = times[2] - times[1]
         all(Δt .≈ diff(times)) || @warn "Violated assumption: all(Δt .≈ diff(times))"
@@ -113,16 +113,16 @@ function plotLFPspectra(LFP::AbstractDimArray; slope = nothing,
     fp = x -> welch_pgram(x, div(length(x), N), div(div(length(x), N), 2); fs = 1 / Δt,
                           window = nothing)
     P = [fp(Array(x)) for x in eachcol(LFP)]
-    𝑓 = P[1].freq # Should be pretty much the same for all columns?
+    frq = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p in P]...)
-    psd = psd ./ (sum(psd, dims = 1) .* (𝑓[2] - 𝑓[1]))
-    psd = DimArray(psd, (Freq(𝑓), dims(LFP, :channel)))
-    fig = traces(𝑓, Array(psd); xlabel = "𝑓 (Hz)", ylabel = "Ŝ",
+    psd = psd ./ (sum(psd, dims = 1) .* (frq[2] - frq[1]))
+    psd = DimArray(psd, (𝑓(frq), dims(LFP, Chan)))
+    fig = traces(frq, Array(psd); xlabel = "frq (Hz)", ylabel = "Ŝ",
                  title = "Normalised power spectral density", smooth = 1,
                  yscale = Makie.log10, xscale = Makie.log10, doaxis = false, domean = false,
                  yminorgridvisible = false, kwargs...)
     if !isnothing(slope)
-        _psd = psd[Freq(DD.Between(slope...))]
+        _psd = psd[𝑓(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color = slopecolor,
                linewidth = 5)
@@ -135,27 +135,27 @@ end
 function plotLFPspectra(session, probeid, LFP::AbstractDimArray; slope = nothing,
                         position = Point2f([5, 1e-5]), slopecolor = :crimson, kwargs...)
     # Calculate the power spectrum of each column of the LFP array
-    times = collect(dims(LFP, Ti))
+    times = collect(dims(LFP, 𝑡))
     Δt = times[2] - times[1]
     all(Δt .≈ diff(times)) || @warn "Violated assumption: all(Δt .≈ diff(times))"
-    # 𝑓 = rfftfreq(length(times), 1/Δt)
+    # frq = rfftfreq(length(times), 1/Δt)
     # 𝑍 = rfft(Array(LFP), 1)
     # A = abs.(𝑍)
     # psd = (Δt/length(times))*A.^2
     fp = x -> welch_pgram(x, div(length(x), 500), div(div(length(x), 500), 2); fs = 1 / Δt,
                           window = nothing)
     P = [fp(Array(x)) for x in eachcol(LFP)]
-    𝑓 = P[1].freq # Should be pretty much the same for all columns?
+    frq = P[1].freq # Should be pretty much the same for all columns?
     psd = hcat([p.power for p in P]...)
-    psd = psd ./ (sum(psd, dims = 1) .* (𝑓[2] - 𝑓[1]))
-    psd = DimArray(psd, (Freq(𝑓), dims(LFP, :channel)))
-    depths = ANB.getchanneldepths(session, probeid, collect(dims(psd, :channel)))
-    fig = traces(𝑓, Array(psd); tracez = -depths, xlabel = "𝑓 (Hz)", ylabel = "Ŝ",
+    psd = psd ./ (sum(psd, dims = 1) .* (frq[2] - frq[1]))
+    psd = DimArray(psd, (𝑓(frq), dims(LFP, Chan)))
+    depths = ANB.getchanneldepths(session, probeid, collect(dims(psd, Chan)))
+    fig = traces(frq, Array(psd); tracez = -depths, xlabel = "frq (Hz)", ylabel = "Ŝ",
                  title = "Normalised power spectral density", clabel = "Depth", smooth = 1,
                  yscale = Makie.log10, doaxis = false, domean = false,
                  yminorgridvisible = false, kwargs...)
     if !isnothing(slope)
-        _psd = psd[Freq(DD.Between(slope...))]
+        _psd = psd[𝑓(DD.Between(slope...))]
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color = slopecolor,
                linewidth = 5)
@@ -168,21 +168,21 @@ end
 function plotLFPspectra(session, probeids::Vector, LFP::Vector; slopecolor = nothing,
                         kwargs...)
     @assert length(probeids) == length(LFP)
-    times = collect(dims(LFP[1], Ti))
+    times = collect(dims(LFP[1], 𝑡))
     Δt = times[2] - times[1]
     @assert all(Δt .≈ diff(times))
     fp = x -> welch_pgram(x, div(length(x), 200), div(div(length(x), 200), 2); fs = 1 / Δt,
                           window = nothing)
     A = Vector(undef, length(LFP))
     P = fp(Array(LFP[1][:, 1]))
-    𝑓 = P[1].freq # Should be pretty much the same for all channels?
+    frq = P[1].freq # Should be pretty much the same for all channels?
     @time for x in 1:length(LFP)
         P = [fp(Array(x)) for x in eachcol(LFP)]
         psd = hcat([p.power for p in P]...)
-        psd = psd ./ (sum(psd, dims = 1) .* (𝑓[2] - 𝑓[1]))
-        A[x] = DimArray(psd, (Freq(𝑓), dims(LFP, :channel)))
+        psd = psd ./ (sum(psd, dims = 1) .* (frq[2] - frq[1]))
+        A[x] = DimArray(psd, (𝑓(frq), dims(LFP, Chan)))
     end
-    depths = [ANB.getchanneldepths(session, probeids[x], collect(dims(A[x], :channel)))
+    depths = [ANB.getchanneldepths(session, probeids[x], collect(dims(A[x], Chan)))
               for x in 1:length(probeids)]
     A = hcat(A...)
     depths = vcat(depths...)
@@ -201,22 +201,22 @@ function stackedtraces!(ax::Axis, X::AN.LFPMatrix; offset = 0.5, stimulus = noth
     inc = 0
     rev && (X = -X)
     #c = 0.0#0.1*mean(diff.(extrema.(eachcol(X)).|>collect))[1]
-    # c = offset*mean(diff.(extrema.(eachslice(X, dim=Dim{:channel})).|>collect))[1]
+    # c = offset*mean(diff.(extrema.(eachslice(X, dim=Chan)).|>collect))[1]
     #data = [(inc += (c + minimum(X[:, i] .- X[:, i+1])[1]); X[:, i] .+ inc) for i ∈ 1:size(X, 2)-1]
     X = X .- minimum.(eachcol(X))'
-    channels = dims(X, Dim{:channel})
+    channels = dims(X, Chan)
 
     if isnothing(offset)
         X = X ./ (maximum.(eachcol(X))' .- minimum.(eachcol(X))')
-        c = 1:size(X, Dim{:channel})
+        c = 1:size(X, Chan)
     else
-        c = zeros(size(X, Dim{:channel}))
-        for i in 2:size(X, Dim{:channel})
+        c = zeros(size(X, Chan))
+        for i in 2:size(X, Chan)
             c[i] = c[i - 1] + maximum(X[:, i - 1] .- X[:, i]) + offset * mean(X)
         end
     end
     data = [X[:, i] .+ c[i] for i in 1:size(X, 2)]
-    Makie.lines!.((ax,), (dims(X, Ti) |> collect,), data |> collect; kwargs...)
+    Makie.lines!.((ax,), (dims(X, 𝑡) |> collect,), data |> collect; kwargs...)
     # hlines!(ax, c)
     ax.yticks = (mean.(data), string.(channels))
     ax.yticklabelrotation = 0 # π/2
@@ -239,7 +239,7 @@ function stackedtraces(X::AN.LFPMatrix; kwargs...)
 end
 
 function stimulusvlines!(ax, X, stimulus; stimcolor = nothing)
-    times = Interval(extrema(dims(X, Ti))...)
+    times = Interval(extrema(dims(X, 𝑡))...)
     starts = stimulus.start_time
     stops = stimulus.stop_time
     startidxs = starts .∈ (times,)
@@ -260,14 +260,14 @@ function stimulusvlines!(ax, X, stimulus; stimcolor = nothing)
 end
 
 function regiontraces(X::AN.LFPMatrix; kwargs...)
-    channels = dims(X, Dim{:channel}) |> collect
+    channels = dims(X, Chan) |> collect
     structures = AN.getstructureacronyms(channels)
     fig, ax = stackedtraces(X; kwargs...)
     ax.yticks = (ax.yticks.val[1], structures)
 end
 
 function plotwaveletvariability(res::AN.LogWaveletMatrix, L::Function; downsample = 10)
-    x = dims(res, Dim{:logfrequency}) |> collect
+    x = dims(res, Log𝑓) |> collect
     fig = traces((x), collect(res[1:downsample:end, :])'; domean = true, alpha = 0.01) # Plots the wavelet spectrum at each time against the mean wavelet spectrum
     ax = current_axis()
     lines!(ax, (x), L.(x), color = :crimson, linewidth = 2)
@@ -276,8 +276,8 @@ function plotwaveletvariability(res::AN.LogWaveletMatrix, L::Function; downsampl
 end
 
 function Makie.heatmap!(ax, B::AN.Burst; kwargs...)
-    x = dims(B.mask, Ti) |> collect
-    y = dims(B.mask, Dim{:logfrequency}) |> collect
+    x = dims(B.mask, 𝑡) |> collect
+    y = dims(B.mask, Log𝑓) |> collect
     heatmap!(ax, x, y, B.mask |> Array; kwargs...)
 end
 function Makie.heatmap(B::AN.Burst; kwargs...)
@@ -285,8 +285,8 @@ function Makie.heatmap(B::AN.Burst; kwargs...)
 end
 
 function plotfit!(ax, b::AN.Burst; kwargs...)
-    x = dims(b.mask, Ti) |> collect
-    y = dims(b.mask, Dim{:logfrequency}) |> collect
+    x = dims(b.mask, 𝑡) |> collect
+    y = dims(b.mask, Log𝑓) |> collect
     surface!(ax, x, y .|> exp10, b.mask |> Array; kwargs...)
     model = xy -> AN.gaussian2(xy, b.fit.param)
     x = LinRange(extrema(x)..., 10)

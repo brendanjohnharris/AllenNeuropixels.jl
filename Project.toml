@@ -1,7 +1,7 @@
 name = "AllenNeuropixels"
 uuid = "c7dbd8d7-5c13-4dcb-90e2-bff79a096f56"
 authors = ["brendanjohnharris <brendanjohnharris@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 AllenNeuropixelsBase = "0b0e28cf-a3af-44db-8bea-1c4507018d35"
@@ -60,7 +60,7 @@ Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [compat]
-AllenNeuropixelsBase = "0.2"
+AllenNeuropixelsBase = "0.3"
 AllenSDK = "0.2"
 CSV = "0.5 - 0.10"
 Clustering = "0.15"
@@ -102,7 +102,7 @@ Requires = "1"
 StatsBase = "0.33, 0.34"
 TimeZones = "1"
 TimeseriesSurrogates = "2"
-TimeseriesTools = "0.4"
+TimeseriesTools = "0.5"
 Wavelets = "0.9, 0.10"
 julia = "1.8"
 

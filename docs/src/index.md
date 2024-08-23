@@ -64,7 +64,7 @@ To calculate depths for the LFP channels:
 
 ```julia
 using TimeseriesTools
-channelids = lookup(LFP, :channel)
+channelids = lookup(LFP, Chan)
 probedepths = AN.getchanneldepths(session, channelids; method=:probe) # From the cortical surface along probe depths (μm)
 streamlinedepths = AN.getchanneldepths(session, channelids; method=:streamlines) # Along streamlines (%)
 ```

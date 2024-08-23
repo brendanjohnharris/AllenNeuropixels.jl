@@ -423,7 +423,7 @@ end
 function _layerplot(session::AN.AbstractSession, channels::AbstractVector{<:Int})
     channels = AN.sortbydepth(session, channels; method = :probe)
     depths = AN.getchanneldepths(session, channels; method = :probe)
-    depths = Dim{:depth}(depths)
+    depths = Depth(depths)
     depths = first(rectify(depths))
 
     layerids, layers = AN.getchannellayers(session, channels) # By default, all channels along a probe. Subcortical structures don't get layers.

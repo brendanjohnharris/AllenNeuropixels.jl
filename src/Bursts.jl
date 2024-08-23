@@ -49,11 +49,11 @@ maxfreq(B::Burst) = exp10(dims(mask(B), 2)[findmax(mask(B))[2][2]])
 maxtime(B::Burst) = dims(mask(B), 1)[findmax(mask(B))[2][1]]
 logpeakfreq(B::Burst) = B.fit.param[3]
 peakfreq(B::Burst) = B |> logpeakfreq |> exp10
-df(B::Burst) = mean(diff(collect(dims(mask(B), Dim{:logfrequency}))))
-dt(B::Burst) = step(dims(mask(B), Ti))
-maskduration(B::Burst) = dims(mask(B), Ti) |> extrema |> collect |> diff |> first
+df(B::Burst) = mean(diff(collect(dims(mask(B), Log𝑓))))
+dt(B::Burst) = step(dims(mask(B), 𝑡))
+maskduration(B::Burst) = dims(mask(B), 𝑡) |> extrema |> collect |> diff |> first
 function maskspectralwidth(B::Burst)
-    dims(mask(B), Dim{:logfrequency}) |> extrema |> collect |> diff |> first
+    dims(mask(B), Log𝑓) |> extrema |> collect |> diff |> first
 end
 asymmetry(B::Burst) = abs(log10(maxfreq(B)) - log10(peakfreq(B)))
 fiterror(B::Burst) = mean(B.fit.resid) ./ mean(B.mask[:])
@@ -66,7 +66,7 @@ inany(x::Tuple, V::Vector{<:AbstractInterval}) = inany.(x, (V,))
 isfit(B::Burst) = (getfield(B, :fit) isa LsqFit.LsqFitResult)
 
 function getchannel(B::Burst)
-    isempty(mask(B).refdims) ? nothing : refdims(mask(B), Dim{:channel}) |> first
+    isempty(mask(B).refdims) ? nothing : refdims(mask(B), Chan) |> first
 end
 flds = [:stimulus, :structure, :sessionid, :probeid]
 for f in flds
@@ -77,7 +77,7 @@ end
 # stimulus(B::Burst) = hasfield(B.mask.metadata, :stimulus) ? B.mask.metadata[:stimulus] : nothing
 # structure(B::Burst) = hasfield(B.mask.metadata, :structure) ? B.mask.metadata[:structure] : nothing
 # sessionid(B::Burst) = hasfield(B.mask.metadata, :sessionid) ? B.mask.metadata[:sessionid] : nothing
-# channel(B::Burst) = hasfield(B.mask.metadata, :channel) ? B.mask.metadata[:channel] : nothing
+# channel(B::Burst) = hasfield(B.mask.metadata, nnnel) ? B.mask.metadata[:channel] : nothing
 # probeid(B::Burst) = hasfield(B.mask.metadata, :probeid) ? B.mask.metadata[:probeid] : nothing
 function _burstsubset(B, σ)
     channel = getchannel(B)
@@ -88,13 +88,13 @@ end
 
 function burstsubset(B::Burst, LFP::LFPMatrix, σ = 1.0)
     channel, ts = _burstsubset(B, σ)
-    return LFP[Ti(ts), Dim{:channel}(At(channel))]
+    return LFP[𝑡(ts), Chan(At(channel))]
 end
 
 function burstsubset(B::Burst, res::LogWaveletMatrix, σ = 1.0)
     channel, ts = _burstsubset(B, σ)
     @assert channel == getchannel(B)
-    return res[Ti(ts)]
+    return res[𝑡(ts)]
 end
 
 burstlfp = burstsubset
@@ -103,12 +103,12 @@ function basicfilter!(B::BurstVector; pass = nothing, fmin = 0.1, tmin = 2, tmax
     # fmin = log10(fmin)
     # pass = Interval(pass...)
     # passes(x) = all([y in pass for y in x])
-    # filter!(b->size(mask(b), Ti) > tmin/dt(b), B)
-    # filter!(b->size(mask(b), Ti) < tmax/dt(b), B)
-    filter!(b -> size(mask(b), Ti) > tmin / maxfreq(b) / dt(b), B) # Filter bursts that have a duration less than tmin cycles
-    isnothing(pass) || (filter!(b -> size(mask(b), Ti) < tmax / pass[1] / dt(b), B))
-    # filter!(b->size(mask(b), Dim{:logfrequency}) > fmin/df(b), B)
-    # filter!(b->passes(extrema(dims(mask(b), Freq))), B)
+    # filter!(b->size(mask(b), 𝑡) > tmin/dt(b), B)
+    # filter!(b->size(mask(b), 𝑡) < tmax/dt(b), B)
+    filter!(b -> size(mask(b), 𝑡) > tmin / maxfreq(b) / dt(b), B) # Filter bursts that have a duration less than tmin cycles
+    isnothing(pass) || (filter!(b -> size(mask(b), 𝑡) < tmax / pass[1] / dt(b), B))
+    # filter!(b->size(mask(b), Log𝑓) > fmin/df(b), B)
+    # filter!(b->passes(extrema(dims(mask(b), 𝑓))), B)
 end
 basicfilter!(; kwargs...) = x -> basicfilter!(x; kwargs...)
 
@@ -141,8 +141,8 @@ bandfilter(; kwargs...) = x -> bandfilter(x; kwargs...)
 function filtergammabursts!(B::BurstVector; fmin = 1, tmin = 0.008, pass = [50, 60]) # fmin in Hz, tmin in s
     fmin = log10(fmin)
     pass = Interval(pass...)
-    filter!(b -> size(mask(b), Ti) > tmin / dt(b), B)
-    filter!(b -> size(mask(b), Dim{:logfrequency}) > fmin / df(b), B)
+    filter!(b -> size(mask(b), 𝑡) > tmin / dt(b), B)
+    filter!(b -> size(mask(b), Log𝑓) > fmin / df(b), B)
     filter!(b -> peakfreq(b) ∈ pass, B)
     # ..... Other stuff
 end
@@ -161,21 +161,21 @@ function threshold(res, thresh, method)
     if !(method isa Symbol) # A tuple of (method, surrogate_res)
         sres = last(method)
         sres = convert(LogWaveletMatrix, sres)
-        dt = step(dims(res, Ti))
+        dt = step(dims(res, 𝑡))
         tilims = collect(extrema(dims(res)[1]))
         tilims[2] += dt / 4 # Slightly widen to avoid floting point issues with the indices
         tilims[1] -= dt / 4 # Slightly widen to avoid floting point issues with the indices
-        res = sres[Ti(ClosedInterval(tilims...)),
-                   Dim{:logfrequency}(ClosedInterval(extrema(dims(res)[2])...))]
+        res = sres[𝑡(ClosedInterval(tilims...)),
+                   Log𝑓(ClosedInterval(extrema(dims(res)[2])...))]
         method = first(method)
     end
     if method == :percentile
-        cutoff = mapslices(x -> percentile(x, thresh), res, dims = Ti)
+        cutoff = mapslices(x -> percentile(x, thresh), res, dims = 𝑡)
     elseif method == :std
-        cutoff = thresh * mapslices(std, res, dims = Ti) # .+ mapslices(mean, res, dims = Ti)
+        cutoff = thresh * mapslices(std, res, dims = 𝑡) # .+ mapslices(mean, res, dims = 𝑡)
     elseif method == :iqr
-        cutoff = thresh * mapslices(iqr, res, dims = Ti) #.+
-        mapslices(median, res, dims = Ti)
+        cutoff = thresh * mapslices(iqr, res, dims = 𝑡) #.+
+        mapslices(median, res, dims = 𝑡)
     end
     @debug "Thresholding at $thresh with $(method) method"
     return cutoff
@@ -194,7 +194,7 @@ end
 Threshold a wavelet spectrum using either a percentile cutoff (`method=:percentile`) or a standard deviation cutoff (`method=:std`) of either each frequency band (`eachfreq=true`) or the entire spectrum. You probably want to FOOOF the spectrum before this
 """
 function burstthreshold!(res::LogWaveletMatrix, thresh; method = :iqr, zerograd = 0.0)
-    @assert dims(res, Ti).val.data isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
+    @assert dims(res, 𝑡).val.data isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
     cutoffs = threshold(res, thresh, method)
     res[res .< cutoffs] .= 0.0
 end
@@ -212,12 +212,12 @@ end
 `thresh` is a proportion of the average gradient of the wavelet spectrum below which a gradie
 """
 function burstcurvature!(res::LogWaveletMatrix, thresh = 0)
-    @assert dims(res, Ti).val.data isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
+    @assert dims(res, 𝑡).val.data isa AbstractRange "Rectify the LFP array before calculating the wavelet transform"
 
-    xs = dims(res, Ti)
+    xs = dims(res, 𝑡)
     @assert xs.val.data isa AbstractRange "Expected rectified time indices"
     xs = xs.val.data
-    ys = collect(dims(res, Dim{:logfrequency}))
+    ys = collect(dims(res, Log𝑓))
     @assert std(diff(ys)) / std(ys)<1e-3 "Logarithmic frequency bins are not approximately uniform"
     df = median(diff(ys))
     _ys = minimum(ys):df:(maximum(ys) + 3.0 * df)
@@ -267,10 +267,10 @@ function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 2,
     idxs = areas .≥ areacutoff
     centroids = ImageMorphology.component_centroids(components)[2:end]
     centroids = [round.(Int, c) for c in centroids]
-    𝑓 = dims(_res, Dim{:logfrequency})
-    t = dims(_res, Ti)
-    peaks = [(t[c[1]], 𝑓[c[2]]) for c in centroids]
-    peaks = [(p[1], p[2], _res[Ti(At(p[1])), Dim{:logfrequency}(At(p[2]))]) for p in peaks]
+    frq = dims(_res, Log𝑓)
+    t = dims(_res, 𝑡)
+    peaks = [(t[c[1]], frq[c[2]]) for c in centroids]
+    peaks = [(p[1], p[2], _res[𝑡(At(p[1])), Log𝑓(At(p[2]))]) for p in peaks]
     # ! Might want to look for gaussian peak instead
     # masks = burstmask.((_res,), peaks)
     bb = ImageMorphology.component_boxes(components)[2:end]
@@ -290,14 +290,14 @@ function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 2,
 end
 
 function mmap_detectbursts(res::LogWaveletMatrix; window = 50000, kwargs...)
-    ti = _slidingwindow(collect(dims(res, Ti)), window; tail = true)
+    ti = _slidingwindow(collect(dims(res, 𝑡)), window; tail = true)
     ti = [ClosedInterval(extrema(t)...) for t in ti]
     B = Vector{Burst}()
     threadlog, threadmax = (0, length(ti))
     @withprogress name="Burst detection" begin
         for (i, ts) in enumerate(ti)
             @info "Calculating epoch $i/$(length(ti))"
-            subres = res[Ti(ts)]
+            subres = res[𝑡(ts)]
             append!(B, _detectbursts(subres; kwargs...))
             if threadmax > 1
                 Threads.threadid() == 1 && (threadlog += 1) % 1 == 0 &&
@@ -380,7 +380,7 @@ function detectbursts(res::LogWaveletMatrix; pass = nothing, dofit = true,
         fpass = collect(log10.(pass))
         fpass = [fpass[1] - 0.25, fpass[2] + 0.25] # Slightly widen for better burst estimates. We still filter burst centers in the provided pass band later
         @info "Selecting the $(pass) Hz band"
-        res = res[Dim{:logfrequency}(Interval(fpass...))]
+        res = res[Log𝑓(Interval(fpass...))]
     end
     B = detection(res; filter = basicfilter!(; pass), dofit, kwargs...)
     # isnothing(pass) || (@info "Filtering in the $(pass) Hz band"; bandfilter!(B; pass))
@@ -391,7 +391,7 @@ function detectbursts(res::LogWaveletMatrix; pass = nothing, dofit = true,
     return B
 end
 
-function detectbursts(x::LFPVector; kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, Ti))/minimum(pass))), N=100
+function detectbursts(x::LFPVector; kwargs...) # surrodur=min(length(x), round(Int, 50/step(dims(x, 𝑡))/minimum(pass))), N=100
     # s = surrogate(x, AP())
     # # S = [s() for _ in 1:N]
     # # γₛ = gammafilter(s; pass)
@@ -510,9 +510,9 @@ function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
 end
 
 function fitdiagonalgaussian(mask::AbstractDimArray)
-    𝑓 = dims(mask, 2)
+    frq = dims(mask, 2)
     t = dims(mask, 1)
-    f = fitdiagonalgaussian(t, 𝑓, mask |> Array)
+    f = fitdiagonalgaussian(t, frq, mask |> Array)
 end
 
 # """
@@ -522,12 +522,12 @@ end
 # Could consider doing this in two passess, to be computationally efficient: first pass by looking along perpendicular directions, with a low threshold, then second pass by fitting a Gaussian on this loose mask and setting a higher threshold.
 # """
 function burstmask(res::LogWaveletMatrix, peak; thresh = 0.8, n = 3)#, diffthresh=0.01)
-    pidx = ((Ti ∘ At)(peak[1]), (Dim{:logfrequency} ∘ At)(peak[2]))
+    pidx = ((𝑡 ∘ At)(peak[1]), (Log𝑓 ∘ At)(peak[2]))
     A = res[pidx...]
     thresh = thresh * A
     # Find the rectangular boundary that contains the threshold. Work in each dimension from the centre. Assumes the burst profile is blobby around the peak and its horizontal/vertical axes.
-    𝑓 = dims(res, Dim{:logfrequency})
-    t = dims(res, Ti)
+    frq = dims(res, Log𝑓)
+    t = dims(res, 𝑡)
 
     bounds = zeros(4) # (tmin, tmax, fmin, fmax)
 
@@ -540,20 +540,20 @@ function burstmask(res::LogWaveletMatrix, peak; thresh = 0.8, n = 3)#, diffthres
     # ups = res[pidx[2]][t .> peak[1]]
     # dups = vcat([0], diff(ups))
     # up = findfirst((ups .< thresh) .| (dups .> diffthresh*maximum(dups)))
-    # bounds[2] = isnothing(up) ? size(res, Ti) : findfirst(t .> peak[1]) + up - 1
+    # bounds[2] = isnothing(up) ? size(res, 𝑡) : findfirst(t .> peak[1]) + up - 1
 
-    # ups = res[pidx[1]][𝑓 .< peak[2]]
+    # ups = res[pidx[1]][frq .< peak[2]]
     # dups = -vcat(diff(ups), [0])
     # up = findlast((ups .< thresh) .| (dups .> diffthresh*maximum(dups)))
     # bounds[3] = isnothing(up) ? 1 : up
 
-    # ups = res[pidx[1]][𝑓 .> peak[2]]
+    # ups = res[pidx[1]][frq .> peak[2]]
     # dups = vcat([0], diff(ups))
     # up = findfirst((ups .< thresh) .| (dups .> diffthresh*maximum(dups)))
-    # bounds[4] = isnothing(up) ? size(res, Freq) : findfirst(𝑓 .> peak[2]) + up - 1
+    # bounds[4] = isnothing(up) ? size(res, 𝑓) : findfirst(frq .> peak[2]) + up - 1
 
     # bounds[1:2] .= t[Int.(bounds[1:2])]
-    # bounds[3:4] .= 𝑓[Int.(bounds[3:4])]
+    # bounds[3:4] .= frq[Int.(bounds[3:4])]
 
     # * This one looks for the hwhm in each direction, then just multiplies that by a few for good coverage. It's not a terrible thing if we are too broad.
     p = t .< peak[1]
@@ -568,26 +568,26 @@ function burstmask(res::LogWaveletMatrix, peak; thresh = 0.8, n = 3)#, diffthres
     up = findfirst((ups .< thresh))
     w = up
     up = findfirst(p) + n * w
-    bounds[2] = min(size(res, Ti), up)
+    bounds[2] = min(size(res, 𝑡), up)
 
-    p = 𝑓 .< peak[2]
+    p = frq .< peak[2]
     ups = res[pidx[1]][p]
     up = findlast((ups .< thresh))
     w = length(ups) - up
     up = findlast(p) - n * w
     bounds[3] = max(1, up)
 
-    p = 𝑓 .> peak[2]
+    p = frq .> peak[2]
     ups = res[pidx[1]][p]
     up = findfirst((ups .< thresh))
     w = up
     up = findfirst(p) + n * w
-    bounds[4] = min(size(res, Freq), up)
+    bounds[4] = min(size(res, 𝑓), up)
 
     bounds[1:2] .= t[Int.(bounds[1:2])]
-    bounds[3:4] .= 𝑓[Int.(bounds[3:4])]
+    bounds[3:4] .= frq[Int.(bounds[3:4])]
 
-    mask = res[Ti(Interval(bounds[1:2]...)), Freq(Interval(bounds[3:4]...))]
+    mask = res[𝑡(Interval(bounds[1:2]...)), 𝑓(Interval(bounds[3:4]...))]
 end
 
 """
@@ -745,10 +745,10 @@ end
 
 function _phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     # * Check the spikes are all in the bounds
-    inter = ClosedInterval(extrema(dims(phi, Ti))...)
+    inter = ClosedInterval(extrema(dims(phi, 𝑡))...)
     s = s[s .∈ [inter]]
     # * Calculate the phases during each spike, for each frequency
-    phis = phi[Ti(Near(s))]
+    phis = phi[𝑡(Near(s))]
     return phis
 end
 
@@ -776,7 +776,7 @@ Buzsaki's phase-locking index ("Gamma rhythm communication between entorhinal co
 """
 function phaselockingindex(phi::LogWaveletMatrix, s::AbstractVector)
     phis = _phaselockingindex(phi, s)
-    𝒴 = mapslices(pairwisephaseconsistency, phis, dims = Ti)[Ti(1)]
+    𝒴 = mapslices(pairwisephaseconsistency, phis, dims = 𝑡)[𝑡(1)]
 end
 
 """
@@ -787,12 +787,12 @@ function _phaselockingindex(B::BurstVector, s::AbstractVector, f::Number; centre
     # First, get a list of phases for every spike with the burst interval
     ts = interval.(B)
     phis = phasemask.(B)
-    phis = getindex.(phis, [Dim{:logfrequency}(Near(log10(f)))])
+    phis = getindex.(phis, [Log𝑓(Near(log10(f)))])
     s = s[inany(s, ts)]
     ϕ = [zeros(0) for _ in phis]
     for (e, es) in enumerate(s)
         i = findfirst([es ∈ t for t in ts])
-        ϕ_ = phis[i][Ti(Near(es))]
+        ϕ_ = phis[i][𝑡(Near(es))]
         append!(ϕ[i], ϕ_)
     end
     if centre
@@ -819,11 +819,11 @@ function _phaselockingindex(B::BurstVector, s::LFPVector, f::Number; centre = tr
     # First, get phases for every burst
     ts = interval.(B)
     phis = phasemask.(B)
-    phis = getindex.(phis, [Dim{:logfrequency}(Near(log10(f)))])
+    phis = getindex.(phis, [Log𝑓(Near(log10(f)))])
 
-    phis = [p[Ti(t)] for (p, t) in zip(phis, ts)] # Just to be sure, same span as below
-    ts = [dims(p, Ti) |> collect for p in phis] # Just to be consistent
-    phis′ = [s[Ti(Near(t))] for t in ts]
+    phis = [p[𝑡(t)] for (p, t) in zip(phis, ts)] # Just to be sure, same span as below
+    ts = [dims(p, 𝑡) |> collect for p in phis] # Just to be consistent
+    phis′ = [s[𝑡(Near(t))] for t in ts]
     @assert length.(phis) == length.(phis′)
 
     # Now get phase differences within each burst
@@ -851,7 +851,7 @@ end
 
 function phaselockingindex(LFP::LFPVector, s::AbstractVector; kwargs...)
     phis = LFP |> hilbert .|> angle
-    phis = phis[Ti(Near(s))]
+    phis = phis[𝑡(Near(s))]
     γ = pairwisephaseconsistency(phis)
     𝑝 = isempty(phis) ? 1.0 : HypothesisTests.pvalue(RayleighTest(collect(phis)))
     return (γ, 𝑝)
@@ -868,7 +868,7 @@ function phaselockingindex(ℬ::Dict, Sp::Dict, f::Number; kwargs...)
     channels = keys(ℬ) |> collect
     units = keys(Sp) |> collect
     γ = DimArray(collect(zeros(length(channels), length(units))),
-                 (Dim{:channel}(channels), Dim{:unit}(units)))
+                 (Chan(channels), Unit(units)))
     𝑝 = deepcopy(γ)
     Threads.@threads for (i, b) in collect(enumerate(values(ℬ)))
         for (j, s) in enumerate(values(Sp))
@@ -886,7 +886,7 @@ function phaselockingindex(ℬ::Dict, phi::Dict{T, LogWaveletMatrix} where {T}, 
     channels = keys(ℬ) |> collect
     units = keys(phi) |> collect
     γ = DimArray(collect(zeros(length(channels), length(units))),
-                 (Dim{:channel}(channels), Dim{:channel}(units)))
+                 (Chan(channels), Chan(units)))
     𝑝 = deepcopy(γ)
     @withprogress name="LFP-LFP phase-locking index" begin
         threadlog, threadmax = (0, length(values(ℬ)))
@@ -993,16 +993,16 @@ function gaussianmask(B...; ts = nothing, fs = nothing, span = 3)
     end
     masks = []
     for ℬ in B
-        mask = DimArray(zeros(length(ts), length(fs)), (Ti(ts), Dim{:logfrequency}(fs)))
+        mask = DimArray(zeros(length(ts), length(fs)), (𝑡(ts), Log𝑓(fs)))
         for b in ℬ
-            tt = dims(mask, Ti)
+            tt = dims(mask, 𝑡)
             tt = tt[tt .∈ (timeinterval(b, span),)]
-            ff = dims(mask, Dim{:logfrequency})
+            ff = dims(mask, Log𝑓)
             ff = ff[ff .∈ (frequencyinterval(b, span),)]
             g = (x, y) -> gaussian2((x, y), b.fit.param)
             for t in tt
                 for f in ff
-                    mask[Ti(At(t)), Dim{:logfrequency}(At(f))] = g(t, f)
+                    mask[𝑡(At(t)), Log𝑓(At(f))] = g(t, f)
                 end
             end
         end
@@ -1011,19 +1011,19 @@ function gaussianmask(B...; ts = nothing, fs = nothing, span = 3)
     return masks
 end
 
-function burstoverlap(res1::LogWaveletMatrix, res2::LogWaveletMatrix; normdims = Freq,
+function burstoverlap(res1::LogWaveletMatrix, res2::LogWaveletMatrix; normdims = 𝑓,
                       globalnorm = false)
     normall(x) = (x .- minimum(x)) ./ (maximum(x) - minimum(x))
     function normfrequency(x)
-        (x .- minimum(x, dims = Ti)) ./ (maximum(x; dims = Ti) - minimum(x; dims = Ti))
+        (x .- minimum(x, dims = 𝑡)) ./ (maximum(x; dims = 𝑡) - minimum(x; dims = 𝑡))
     end
     normdims == :all && (res1, res2 = normall.([res1, res2]))
-    normdims == Freq && (res1, res2 = normfrequency.([res1, res2]))
+    normdims == 𝑓 && (res1, res2 = normfrequency.([res1, res2]))
     normdims == :frequencymax &&
-        (res1, res2 = maximum.([res1, res2], dims = Dim{:logfrequency}))
+        (res1, res2 = maximum.([res1, res2], dims = Log𝑓))
 
-    A = globalnorm ? sum(res1, dims = Ti) .* sum(res2, dims = Ti) : 1.0
-    (A .* sum(res1 .* res2, dims = Ti))[1, :]
+    A = globalnorm ? sum(res1, dims = 𝑡) .* sum(res2, dims = 𝑡) : 1.0
+    (A .* sum(res1 .* res2, dims = 𝑡))[1, :]
 end
 
 burstoverlap(B1::BurstVector, B2::BurstVector) = burstoverlap(gaussianmask(B1, B2)...)
@@ -1068,7 +1068,7 @@ function burstcommunication(LFPs, ℬ; metric = :weighted_phase_lag_index) # Bot
     ℬ = overlapintervals(ℬ...)
     ints = [interval.(B) for B in ℬ]
     channels = [getchannel.(B) for B in ℬ]
-    ts = [[LFPs[i][Ti(int), Dim{:channel}(At(c))] for (c, int) in zip(channels[i], ints[i])]
+    ts = [[LFPs[i][𝑡(int), Chan(At(c))] for (c, int) in zip(channels[i], ints[i])]
           for i in 1:length(LFPs)]
 
     # * Calculate a vector of e.g. PLI's between the two vectors of bursts and their LFP traces
@@ -1079,7 +1079,7 @@ end
 
 function burstcommunication(LFPs, ℬ, f; kwargs...)
     W = burstcommunication(LFPs, ℬ; kwargs...)
-    Ws = [w[Freq(Near(Float64(f)))] for w in W]
+    Ws = [w[𝑓(Near(Float64(f)))] for w in W]
     return Ws
 end
 
@@ -1096,12 +1096,12 @@ function randomisebursts(BS::BurstVector)
     for (i, B) in enumerate(ℬ)
         t0 = B.peak[1]
         _t = B.mask.dims[1].val.data .- t0 .+ ts[i]
-        B.mask = DimArray(B.mask.data, (Ti(_t), B.mask.dims[2]))
+        B.mask = DimArray(B.mask.data, (𝑡(_t), B.mask.dims[2]))
         B.peak = (B.peak[1] - t0 + ts[i], B.peak[2], B.peak[3])
         if hasfield(typeof(B), :phasemask)
-            B.phasemask = DimArray(B.phasemask.data, (Ti(_t), B.phasemask.dims[2]))
+            B.phasemask = DimArray(B.phasemask.data, (𝑡(_t), B.phasemask.dims[2]))
         elseif ndims(B.significance) == 2 # backards compat
-            B.significance = DimArray(B.significance.data, (Ti(_t), B.significance.dims[2]))
+            B.significance = DimArray(B.significance.data, (𝑡(_t), B.significance.dims[2]))
         end
     end
     # [B.mask.dims[1].val.data = B.mask.dims[1].val.data .- ts[i] for (i, B) in enumerate(ℬ)]
@@ -1111,9 +1111,9 @@ end
 
 function addphasemask!(b::AbstractBurst, ϕ::LogWaveletMatrix)
     m = mask(b)
-    tis = dims(m, Ti)
-    fs = dims(m, Dim{:logfrequency})
-    b.phasemask = ϕ[Ti(Near(collect(tis))), Dim{:logfrequency}(Near(collect(fs)))]
+    tis = dims(m, 𝑡)
+    fs = dims(m, Log𝑓)
+    b.phasemask = ϕ[𝑡(Near(collect(tis))), Log𝑓(Near(collect(fs)))]
 end
 addphasemasks!(B::BurstVector, ϕ::LogWaveletMatrix) = addphasemask!.(B, [ϕ])
 
