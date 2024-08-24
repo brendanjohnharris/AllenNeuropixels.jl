@@ -9,6 +9,7 @@ using Requires
 using IntervalSets
 using Reexport
 using PythonCall
+using TimeseriesTools
 @reexport using AllenNeuropixelsBase
 import AllenNeuropixelsBase.rectifytime
 function __init__()
