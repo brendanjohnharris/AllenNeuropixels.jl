@@ -1,5 +1,6 @@
 using DimensionalData
 import DimensionalData as DD
+using TimeseriesTools
 using Statistics
 using DSP
 using StatsBase
