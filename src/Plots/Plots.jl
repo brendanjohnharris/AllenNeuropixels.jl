@@ -10,6 +10,7 @@ using GeometryBasics
 using DataFrames
 using FileIO
 import ..AllenNeuropixels as AN
+import ..AllenNeuropixels: Chan, Unit, Depth, Log𝑓
 
 # function htmlexport(fig, file::String="plot.html")
 #     open(file, "w") do io
