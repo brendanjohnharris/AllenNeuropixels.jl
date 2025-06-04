@@ -1,5 +1,6 @@
 using StatsBase
 using ImageMorphology
+using TimeseriesTools
 using LsqFit
 using LinearAlgebra
 using ProgressLogging

@@ -10,6 +10,7 @@ using GeometryBasics
 using DataFrames
 using FileIO
 import ..AllenNeuropixels as AN
+import ..AllenNeuropixels: Chan, Unit, Depth, Log𝑓
 
 # function htmlexport(fig, file::String="plot.html")
 #     open(file, "w") do io
@@ -32,16 +33,16 @@ import ..AllenNeuropixels as AN
 Makie.convert_arguments(x::AN.LFPVector) = (dims(x, 𝑡) |> collect, x |> Array)
 Makie.convert_single_argument(x::AN.LFPVector) = (dims(x, 𝑡) |> collect, x |> Array)
 
-# GeometryBasics.decompose(x::AN.DimensionalData.AbstractToolsArray) = ((dims(x).|>collect)..., x.data)
+# GeometryBasics.decompose(x::AN.TimeseriesTools.AbstractToolsArray) = ((dims(x).|>collect)..., x.data)
 
-# GeometryBasics.decompose(x::AN.DimensionalData.AbstractToolsArray, dims...) = (getindex.((dims(x).|>collect), dims)..., x.data[dims...])
+# GeometryBasics.decompose(x::AN.TimeseriesTools.AbstractToolsArray, dims...) = (getindex.((dims(x).|>collect), dims)..., x.data[dims...])
 
-dimname(x::AN.DimensionalData.AbstractToolsArray, dim) = dims(x, dim) |> name |> string
+dimname(x::AN.TimeseriesTools.AbstractToolsArray, dim) = dims(x, dim) |> name |> string
 
-function formataxes(x::AN.DimensionalData.AbstractToolsArray{T, 2} where {T})
+function formataxes(x::AN.TimeseriesTools.AbstractToolsArray{T, 2} where {T})
     (xlabel = dimname(x, 1), ylabel = dimname(x, 2))
 end
-function formataxes(x::AN.DimensionalData.AbstractToolsArray{T, 1} where {T})
+function formataxes(x::AN.TimeseriesTools.AbstractToolsArray{T, 1} where {T})
     (xlabel = dimname(x, 1),)
 end
 
