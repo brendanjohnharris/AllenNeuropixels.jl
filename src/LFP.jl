@@ -4,12 +4,10 @@ using HDF5
 using Statistics
 using DSP
 using FFTW
-using DelayEmbeddings
 using MultivariateStats
 using ContinuousWavelets
 using TimeseriesSurrogates
 import TimeseriesTools.samplingrate
-using HTTP
 using PyFOOOF
 using ProgressLogging
 using TimeseriesTools
