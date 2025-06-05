@@ -5,4 +5,5 @@ using Test
 @testset "AllenNeuropixels" begin
     cs = AN.getprobes()
     @test cs isa DataFrame
+    @test !isempty(cs)
 end
