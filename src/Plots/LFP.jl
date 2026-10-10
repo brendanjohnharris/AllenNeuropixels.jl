@@ -127,7 +127,7 @@ function plotLFPspectra(LFP::AbstractToolsArray; slope = nothing,
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color = slopecolor,
                linewidth = 5)
-        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position = Point2f0(position),
+        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position = Point2f(position),
               fontsize = 40)
     end
     return fig
@@ -160,7 +160,7 @@ function plotLFPspectra(session, probeid, LFP::AbstractToolsArray; slope = nothi
         c, r, f = powerlawfit(_psd)
         lines!(LinRange(slope..., 100), f(LinRange(slope..., 100)), color = slopecolor,
                linewidth = 5)
-        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position = Point2f0(position),
+        text!(L"$\alpha$= %$(round(r, sigdigits=2))", position = Point2f(position),
               fontsize = 40)
     end
     return fig

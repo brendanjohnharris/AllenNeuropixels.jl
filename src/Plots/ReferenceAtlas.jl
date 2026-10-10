@@ -70,7 +70,7 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
 
             if dotext
                 _, idx = findmax(z) # The highest unit
-                text!(s, string(probeid), position = Vec3f0(x[idx], z[idx], -y[idx]),
+                text!(s, string(probeid), position = Vec3f(x[idx], z[idx], -y[idx]),
                       space = :data, fontsize = 5, align = (:right, :bottom),
                       rotation = Quaternion((-0.3390201, 0.33899, 0.6205722, -0.620517)),
                       transparency = true)
@@ -123,7 +123,7 @@ function exportreferencevolume(S, file::String = "plot.html"; ids = :targets, kw
     """)
         show(io, MIME"text/html"(), Page(exportable = true, offline = true))
         fig = plotreferencevolume(S; dostructures = true, ids, kwargs...)
-        rotate_cam!(fig, Vec3f0(0, 2.35, 0))
+        rotate_cam!(fig, Vec3f(0, 2.35, 0))
         show(io, MIME"text/html"(), fig)
         println(io,
                 """
