@@ -1120,9 +1120,6 @@ addphasemasks!(B::BurstVector, ϕ::LogWaveletMatrix) = addphasemask!.(B, [ϕ])
 
 function addphasemasks(B::BurstVector, ϕ::LogWaveletMatrix)
     B = deepcopy(B)
-    for b in B # Just in case these are old bursts, without the phasemask field
-        b = Burst(b.mask, b.thresh, b.peak, b.fit, b.width, b.significance)# , nothing
-    end
     addphasemasks!(B, ϕ)
     return B
 end
