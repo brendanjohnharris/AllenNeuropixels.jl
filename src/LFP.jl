@@ -350,10 +350,10 @@ function logaperiodicfit(p::LogWaveletMatrix, freqrange = [1.0, 300.0], args...;
     end
     # * The aperiodic model, as described in doi.org/10.1038/s41593-020-00744-x
     if aperiodic_mode == "fixed"
-        b, χ = pyconvert.((Float64,), fm.aperiodic_params_)
+        b, χ = pyconvert(Vector{Float64}, fm.aperiodic_params_)
         k = 0.0
     else
-        b, k, χ = pyconvert.((Float64,), fm.aperiodic_params_)
+        b, k, χ = pyconvert(Vector{Float64}, fm.aperiodic_params_)
         k = max(k, mink)
     end
     # b, k, χ = length(ps) == 3 ? ps : (ps[1], 0.0, ps[2])
@@ -414,7 +414,7 @@ function aperiodicfit(psd::PSDVector, freqrange = [1.0, 300.0]; max_n_peaks = 10
         b, χ = [pyconvert(Float64, x) for x in fm.aperiodic_params_]
         k = 0.0
     else
-        b, k, χ = pyconvert.((Float64,), fm.aperiodic_params_)
+        b, k, χ = pyconvert(Vector{Float64}, fm.aperiodic_params_)
         k = max(k, mink)
     end
     # p = fm.plot(; plot_peaks = "shade", plt_log = true, file_name = "./ttttt.png",
