@@ -3,11 +3,9 @@
 using GLMakie
 using GLMakie.FileIO
 using Downloads
-using Foresight
 using AllenNeuropixels
 import AllenNeuropixels as AN
 import AllenNeuropixelsBase as ANB
-set_theme!(foresight())
 
 begin
     sessionid = 1128520325
@@ -23,7 +21,6 @@ begin # Set up plot
                xzpanelvisible = false,
                yzpanelvisible = false,
                xypanelvisible = false)
-    ax.scene.lights = [DirectionalLight(RGBf(8, 8, 8), Vec3f(2, -1, 1))]
     # ax.scene.lights[2] = PointLight(Makie.RGB(1.0, 1.0, 1),
     #                                       Vec3(14530.263, 11445.357, 9516.364))
     hidedecorations!(ax)
@@ -36,7 +33,7 @@ begin # Set up plot
                                          markersize = 100.0,
                                          fontsize = 15.0,
                                          matcap = false,
-                                         shading = Makie.MultiLightShading)
+                                         shading = true)
     #  ids = [
     #      "VISp",
     #      "VISl",
