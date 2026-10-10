@@ -1,7 +1,7 @@
 
 function spikeraster!(ax::Axis, spikes::AN.SpikeMatrix; markersize = 15, marker = :vline,
                       kwargs...)
-    spy!(ax, dims(spikes, 𝑡) |> collect, 1:size(spikes, 2), spikes |> Array; markersize,
+    spy!(ax, collect(lookup(spikes, 𝑡)), 1:size(spikes, 2), spikes |> Array; markersize,
          marker)
     ax.xlabel = "Time(s)"
     ax.ylabel = "Unit"
@@ -68,7 +68,7 @@ function plotspikebursts!(ax, X::AN.LFPVector, Y::Dict; order = :rate, marker = 
     p = spy!(ax, order[tidxs], times; colormap, marker, markersize)
     [translate!(Accum, _p, (0, 0, 200)) for _p in p]
     dy = diff(collect(extrema(order)))
-    lines!(ax, dims(X, 𝑡) |> collect,
+    lines!(ax, collect(lookup(X, 𝑡)),
            collect(minimum(order) .+ dy .* (X .- minimum(X)) ./ (maximum(X) - minimum(X)));
            color = (linecolor, linealpha), label, linewidth)
     ax.xlabel = "Time (s)"
@@ -79,7 +79,7 @@ function plotspikebursts!(ax, X::AN.LFPVector, Y::AN.LFPVector, Z::Dict;
                           linealpha = 0.3, kwargs...)
     plotspikebursts!(ax, X, Z; linealpha, kwargs...)
     Y = (Y .- mean(Y)) ./ std(Y)
-    lines!(ax, dims(Y, 𝑡) |> collect,
+    lines!(ax, collect(lookup(Y, 𝑡)),
            0.7 .* collect(length(Z) .* (Y .- minimum(Y)) ./ (maximum(Y) - minimum(Y)));
            color = (secondlinecolor, linealpha), label = secondlabel)
 end
@@ -89,8 +89,8 @@ function plotspikebursts!(ax, session, probeid, X::AN.LFPMatrix, Y::Dict; marker
                           maxn = min(size(X, 1), 20000), kwargs...)
     X = X[1:maxn, :]
     subt = ClosedInterval(extrema(dims(X, 𝑡))...)
-    depths = AN.getchanneldepths(session, probeid, dims(X, Chan) |> collect)
-    heatmap!(ax, collect(dims(X, 𝑡)), depths, X.data; colormap)
+    depths = AN.getchanneldepths(session, probeid, collect(lookup(X, Chan)))
+    heatmap!(ax, collect(lookup(X, 𝑡)), depths, X.data; colormap)
     ax.yreversed = true
     # ax.yticks = (1:size(X, Chan), string.(depths))
 
@@ -113,7 +113,7 @@ function plotspikebursts!(ax, session, probeid, X::AN.LFPMatrix, Y::Dict; marker
     # times = collect(values(Y))[idxs]
     # times = times[length.(times) .> 0]
     # times = Vector{Vector}(times)
-    # lines!(ax, dims(X, 𝑡)|>collect, collect(length(times).*(X.-minimum(X))./(maximum(X) - minimum(X))); color=linecolor)
+    # lines!(ax, collect(lookup(X, 𝑡)), collect(length(times).*(X.-minimum(X))./(maximum(X) - minimum(X))); color=linecolor)
     # display(unique(unitdepths))
     # * Jitter neuron depths
     unitdepths = unitdepths .+ randn(length(unitdepths)) .* 10

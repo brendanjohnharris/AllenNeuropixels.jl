@@ -30,8 +30,8 @@ import ..AllenNeuropixels: Chan, Unit, Depth, Log𝑓
 # end
 # exporthtml = htmlexport
 
-Makie.convert_arguments(x::AN.LFPVector) = (dims(x, 𝑡) |> collect, x |> Array)
-Makie.convert_single_argument(x::AN.LFPVector) = (dims(x, 𝑡) |> collect, x |> Array)
+Makie.convert_arguments(x::AN.LFPVector) = (collect(lookup(x, 𝑡)), x |> Array)
+Makie.convert_single_argument(x::AN.LFPVector) = (collect(lookup(x, 𝑡)), x |> Array)
 
 # GeometryBasics.decompose(x::AN.TimeseriesTools.AbstractToolsArray) = ((dims(x).|>collect)..., x.data)
 
