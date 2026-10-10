@@ -584,12 +584,12 @@ function burstmask(res::LogWaveletMatrix, peak; thresh = 0.8, n = 3)#, diffthres
     up = findfirst((ups .< thresh))
     w = up
     up = findfirst(p) + n * w
-    bounds[4] = min(size(res, 𝑓), up)
+    bounds[4] = min(size(res, Log𝑓), up) # res is on Log𝑓
 
     bounds[1:2] .= t[Int.(bounds[1:2])]
     bounds[3:4] .= frq[Int.(bounds[3:4])]
 
-    mask = res[𝑡(Interval(bounds[1:2]...)), 𝑓(Interval(bounds[3:4]...))]
+    mask = res[𝑡(Interval(bounds[1:2]...)), Log𝑓(Interval(bounds[3:4]...))]
 end
 
 """
