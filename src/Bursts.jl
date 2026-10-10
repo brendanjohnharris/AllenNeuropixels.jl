@@ -246,6 +246,7 @@ end
 
 function widen(x, δ = 0.5; upperbound = [Inf, Inf])
     δ = δ / 2
+    x = (Tuple(first(x)), Tuple(last(x))) # (min, max) corners from a CartesianIndices box (ImageMorphology 0.4) or a corner pair (0.3)
     @assert length(x[1]) == length(x[2]) == 2
     Δ = [x[2][1] - x[1][1], x[2][2] - x[1][2]]
     return [
