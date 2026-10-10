@@ -945,10 +945,8 @@ function globalbursts(B::Dict; thresh = 0.5)
     # int = Interval(extrema(ts)...)
     ts = minimum(ts):0.005:maximum(ts) # Down sample a little so that we don't take forever
     gbi = globalburstindex(ts, B)
-    gbs = (gbi .> thresh) |> ImageMorphology.label_components |>
-          ImageMorphology.component_indices
-    gbs = gbs[2:end] .|> extrema
-    gbs = [Interval(ts[g[1]], ts[g[2]]) for g in gbs]
+    edges = diff([0; gbi .> thresh; 0]) # runs of supra-threshold times; ImageMorphology 0.4 segfaults on vectors
+    gbs = [Interval(ts[a], ts[b - 1]) for (a, b) in zip(findall(==(1), edges), findall(==(-1), edges))]
 end
 
 function globalburstindex(t::Number, ints::AbstractVector)
