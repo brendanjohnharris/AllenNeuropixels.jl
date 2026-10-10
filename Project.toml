@@ -1,7 +1,7 @@
 name = "AllenNeuropixels"
 uuid = "c7dbd8d7-5c13-4dcb-90e2-bff79a096f56"
 authors = ["brendanjohnharris <brendanjohnharris@gmail.com>"]
-version = "0.3.0"
+version = "0.4.0"
 
 [deps]
 AllenNeuropixelsBase = "0b0e28cf-a3af-44db-8bea-1c4507018d35"
