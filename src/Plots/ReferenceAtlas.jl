@@ -446,7 +446,8 @@ function plotlayers!(ax, layers, depths)
 end
 
 function plotlayers!(ax, layers, depths, unids, dr, cs)
-    hlines!(ax, collect(depths[dr]) .- 0.5 * step(depths),
+    Δ = depths isa AbstractRange ? step(depths) : median(diff(unique(depths))) # paired channels share a depth, so use the row spacing
+    hlines!(ax, collect(depths[dr]) .- 0.5 * Δ,
             color = (:white, 0.3))
 
     labels = [first(layers[unids .== x]) for x in unique(unids)]
