@@ -343,8 +343,8 @@ function fooof(p::LogWaveletMatrix, freqrange = [1.0, 300.0]; max_n_peaks = 10,
 end
 
 function logaperiodicfit(p::LogWaveletMatrix, freqrange = [1.0, 300.0], args...;
-                         doplot = false, mink = 0.01, kwargs...)
-    fm = fooof(p, freqrange, args...; kwargs...)
+                         doplot = false, mink = 0.01, aperiodic_mode = "knee", kwargs...)
+    fm = fooof(p, freqrange, args...; aperiodic_mode, kwargs...)
     if doplot != false
         p = fm.plot(; plt_log = true, file_name = doplot, save_fig = true)
     end
