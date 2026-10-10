@@ -2,4 +2,11 @@
 * text=auto eol=lf
 
 # Ignore binary files
-*.{png,jpg,jpeg,gif,webp,woff,woff2} binary
+# One pattern per line: git has no brace patterns
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
