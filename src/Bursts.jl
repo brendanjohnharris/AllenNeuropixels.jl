@@ -265,9 +265,9 @@ function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 2,
 
     @debug "Finding connected components"
     components = ImageMorphology.label_components(_res |> Array)
-    areas = ImageMorphology.component_lengths(components)[2:end]
+    areas = ImageMorphology.component_lengths(components)[begin+1:end] # skip the background label (index 0 in ImageMorphology 0.4, 1 in 0.3)
     idxs = areas .≥ areacutoff
-    centroids = ImageMorphology.component_centroids(components)[2:end]
+    centroids = ImageMorphology.component_centroids(components)[begin+1:end]
     centroids = [round.(Int, c) for c in centroids]
     frq = dims(_res, Log𝑓)
     t = dims(_res, 𝑡)
@@ -275,7 +275,7 @@ function _detectbursts(res::LogWaveletMatrix; thresh = 4, curvaturethresh = 2,
     peaks = [(p[1], p[2], _res[𝑡(At(p[1])), Log𝑓(At(p[2]))]) for p in peaks]
     # ! Might want to look for gaussian peak instead
     # masks = burstmask.((_res,), peaks)
-    bb = ImageMorphology.component_boxes(components)[2:end]
+    bb = ImageMorphology.component_boxes(components)[begin+1:end]
     bb = [widen(b, boundingstretch; upperbound = size(res)) for b in bb]
     masks = [res[b[1][1]:b[2][1], b[1][2]:b[2][2]] for b in bb]
     B = Burst.(masks, ((method, thresh, curvaturethresh),), peaks)[idxs]
