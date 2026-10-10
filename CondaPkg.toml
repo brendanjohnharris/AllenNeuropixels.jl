@@ -1,0 +1,4 @@
+channels = ["conda-forge"]
+
+[deps]
+fooof = ">=1.0, <1.1" # 1.1 rejects the log-spaced wavelet frequencies that fooof() and fooofedwavelet() pass
