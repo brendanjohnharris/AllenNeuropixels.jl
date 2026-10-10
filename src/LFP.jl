@@ -19,7 +19,7 @@ function bandpass(x::LFPVector; pass, designmethod = Butterworth(4))
     t = dims(x, 𝑡)
     T = t isa AbstractRange ? step(t) : t |> collect |> diff |> mean
     fs = 1.0 / T
-    y = filtfilt(digitalfilter(Bandpass(pass...; fs), designmethod), x)
+    y = filtfilt(digitalfilter(Bandpass((2 .* pass ./ fs)...), designmethod), x) # DSP 0.8 dropped Bandpass's fs keyword; 2w/fs is how DSP 0.7 normalised
     return ToolsArray(y, dims(x))
 end
 
