@@ -400,8 +400,8 @@ function plotbrain!(ax, S::AN.AbstractSession; dotext = :cortex, dostructures = 
     return (first.(collect(findchannels)), first.(cp), last.(cp)) # The first are the color observables, the rest are the probes plots
 end
 
-function plotbrain!(ax, s::Integer, args...; kawrgs...)
-    plotbrain!(ANB.VisualBehavior.Session(s), args...; kwargs...)
+function plotbrain!(ax, s::Integer, args...; kwargs...)
+    plotbrain!(ax, ANB.VisualBehavior.Session(s), args...; kwargs...)
 end
 
 function label_connected_components(x::Vector{Int})
