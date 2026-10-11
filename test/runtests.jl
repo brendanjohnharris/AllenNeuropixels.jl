@@ -32,6 +32,8 @@ function syntheticlfp(; fs = 1250.0, rng = MersenneTwister(1))
     AN.ToolsArray(x, (AN.𝑡(ts),); refdims = (AN.Chan(1),))
 end
 
+injectedbursts(B) = filter(b -> any(t0 -> abs(AN.peaktime(b) - t0) < 0.1, BURSTTIMES), B)
+
 @testset "detectbursts finds injected gamma bursts" begin
     res = AN.wavelettransform(syntheticlfp(); pass = (10, 200))
     @test res isa AN.WaveletMatrix
@@ -94,6 +96,20 @@ end
     Z = [AN.gaussian2((a, b), p) for a in x, b in y]
     fit = @test_logs min_level = Logging.Warn AN.fitdiagonalgaussian(x, y, Z) # no deprecation warnings
     @test abs.(fit.param) ≈ p rtol = 1e-4
+end
+
+@testset "comparing and filtering bursts" begin
+    res = convert(AN.LogWaveletMatrix, AN.wavelettransform(syntheticlfp(); pass = (10, 200)))
+    B = injectedbursts(AN.detectbursts(res; pass = (30, 100)))
+    @test length(B) == 3
+    H = AN.hellinger(B)
+    @test all(i -> H[i, i] == 0, 1:3)
+    @test H[1, 2] == 1 # 3 s apart
+    o = filter(!isnan, AN.burstoverlap(B, B))
+    @test maximum(o) > maximum(filter(!isnan, AN.burstoverlap(B, B[1:1])))
+    @test length(AN.bandfilter(B; pass = [50, 70])) == 3
+    @test isempty(AN.bandfilter(B; pass = [100, 150]))
+    @test length(B) == 3 # bandfilter copies
 end
 
 using CairoMakie # loads AllenNeuropixels.Plots

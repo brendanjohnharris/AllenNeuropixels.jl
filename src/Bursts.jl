@@ -967,7 +967,7 @@ Returns a function that evaluates the Gaussian fits of a collection of bursts at
 """
 function aggregatefit(ℬ::BurstVector; span = 3)
     ts = timeinterval.(ℬ, span) # Relevant bursts are within 2 SD's of the burst centre
-    fs = frequencyinterval.(ℬ, span)
+    fs = logfrequencyinterval.(ℬ, span)
     function G(t, f)
         idxs = t .∈ ts
         _ℬ = ℬ[idxs]
@@ -989,7 +989,7 @@ function gaussianmask(B...; ts = nothing, fs = nothing, span = 3)
     end
     if isnothing(fs)
         Δf = df(ℬ[1])
-        fs = vcat(collect.(extrema.(frequencyinterval.(ℬ, span)))...) |> extrema
+        fs = vcat(collect.(extrema.(logfrequencyinterval.(ℬ, span)))...) |> extrema
         fs = fs[1]:Δf:fs[2]
     end
     masks = []
@@ -999,7 +999,7 @@ function gaussianmask(B...; ts = nothing, fs = nothing, span = 3)
             tt = dims(mask, 𝑡)
             tt = tt[tt .∈ (timeinterval(b, span),)]
             ff = dims(mask, Log𝑓)
-            ff = ff[ff .∈ (frequencyinterval(b, span),)]
+            ff = ff[ff .∈ (logfrequencyinterval(b, span),)]
             g = (x, y) -> gaussian2((x, y), b.fit.param)
             for t in tt
                 for f in ff
