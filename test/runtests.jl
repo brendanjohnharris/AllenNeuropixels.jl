@@ -2,6 +2,7 @@ import AllenNeuropixels as AN
 using DataFrames
 using Test
 using Random, Statistics
+using Logging
 
 @testset "AllenNeuropixels" begin
     cs = AN.getprobes()
@@ -72,6 +73,15 @@ end
     r = AN.fooofedwavelet(res)
     @test size(r) == size(res)
     @test all(isfinite, r)
+end
+
+@testset "fitdiagonalgaussian" begin
+    x = range(-1, 1, length = 41)
+    y = range(0, 2, length = 31)
+    p = [2.0, 0.2, 1.1, 0.3, 0.4]
+    Z = [AN.gaussian2((a, b), p) for a in x, b in y]
+    fit = @test_logs min_level = Logging.Warn AN.fitdiagonalgaussian(x, y, Z) # no deprecation warnings
+    @test abs.(fit.param) ≈ p rtol = 1e-4
 end
 
 using CairoMakie # loads AllenNeuropixels.Plots

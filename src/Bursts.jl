@@ -508,7 +508,8 @@ function fitdiagonalgaussian(x, y, Z::AbstractMatrix)
     T = eltype(z)
     xy = xy .|> T
     p0 = p0 .|> T
-    fit = LsqFit.curve_fit(gaussian2!, xy, z, p0; inplace = true, autodiff = :forwarddiff)
+    fit = LsqFit.curve_fit(gaussian2!, xy, z, p0; inplace = true,
+                           autodiff = LsqFit.AutoForwardDiff())
 end
 
 function fitdiagonalgaussian(mask::AbstractToolsArray)
