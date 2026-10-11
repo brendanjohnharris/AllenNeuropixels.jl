@@ -94,13 +94,7 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
                     mask = AN.buildstructuremask(id)
                 end
                 mask = Array{Float64}(rotatereferenceatlas(mask)[1:2:end, 1:2:end, 1:2:end])
-                # mc_algo = NaiveSurfaceNets(iso = 0, insidepositive = true)
-                mc_algo = MarchingCubes(iso = 0, insidepositive = true)
-                m = GeometryBasics.Mesh(mask, mc_algo;
-                                        origin = [min(coords[i]...)
-                                                  for i in 1:length(coords)],
-                                        widths = [abs(-(extrema(coords[i])...))
-                                                  for i in 1:length(coords)])
+                m = structuremesh(mask, coords)
                 c = AN.getstructurecolor(id)
                 f = mesh!(s, m; color = RGBA(c.r, c.g, c.b, 0.41), fxaa = true,
                           shading, transparency = true, kwargs...)
@@ -110,6 +104,12 @@ function plotreferencevolume(S; dotext = true, dostructures = true, ids = :targe
         end
     end
     return s
+end
+
+# Mesh of a binary mask, placed on the axes `coords` used by `volume!`
+function structuremesh(mask::AbstractArray{<:Real, 3}, coords)
+    vs, fs = isosurface(mask, MarchingCubes(iso = 0.5), extrema.(coords)...) # halfway between outside (0) and inside (1)
+    GeometryBasics.Mesh(Point3f.(vs), TriangleFace{Int}.(fs))
 end
 
 function exportreferencevolume(S, file::String = "plot.html"; ids = :targets, kwargs...)

@@ -99,3 +99,11 @@ using CairoMakie # loads AllenNeuropixels.Plots
     AN.Plots.plotlayers!(ax, ["L1", "L2/3", "L2/3"], [-40.0, -60.0, -80.0])
     @test only(filter(p -> p isa HLines, ax.scene.plots))[1][] ≈ [-50.0]
 end
+
+@testset "structure meshes" begin
+    n = 21
+    ball = [Float64(sum(abs2, (i, j, k) .- 11) ≤ 36) for i in 1:n, j in 1:n, k in 1:n] # radius 6 voxels
+    m = AN.Plots.structuremesh(ball, [1:n, 1:n, .-(1:n)]) # axes as plotreferencevolume sets them
+    @test !isempty(AN.Plots.GeometryBasics.faces(m))
+    @test all(v -> 5 < hypot((v .- (11, 11, -11))...) < 7, AN.Plots.GeometryBasics.coordinates(m))
+end
