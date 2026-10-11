@@ -431,13 +431,12 @@ function fooofedspectrum!(psd::PSDMatrix, freqrange = [1.0, 300.0]; kwargs...)
 end
 
 function wavelettransform(X::LFPMatrix; kwargs...)
-    res = []
-    threadlog, threadmax = (0, size(X, 2) / Threads.nthreads())
+    res = Vector{Any}(undef, size(X, 2)) # indexed, so threads keep the channel order
+    done = Threads.Atomic{Int}(0)
     @withprogress name="Wavelet transform" begin
-        Threads.@threads for c in 1:axes(X, 2)
-            push!(res, wavelettransform(X[:, c]; kwargs...))
-            Threads.threadid() == 1 && (threadlog += 1) % 1 == 0 &&
-                @logprogress threadlog / threadmax
+        Threads.@threads for c in axes(X, 2)
+            res[c] = wavelettransform(X[:, c]; kwargs...)
+            @logprogress (Threads.atomic_add!(done, 1) + 1) / length(res)
         end
     end
     ti = dims(res[1], 1)

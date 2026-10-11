@@ -75,6 +75,18 @@ end
     @test all(isfinite, r)
 end
 
+@testset "wavelettransform keeps channel order" begin
+    x = syntheticlfp()
+    X = AN.ToolsArray(hcat(parent(x), 2 .* parent(x), 3 .* parent(x)),
+                      (AN.dims(x, AN.𝑡), AN.Chan([3, 1, 2])))
+    W = AN.wavelettransform(X; pass = (10, 200))
+    w = AN.wavelettransform(x; pass = (10, 200))
+    @test AN.lookup(W, AN.Chan) == [3, 1, 2]
+    for (k, c) in enumerate([3, 1, 2]) # the magnitude scales with the amplitude
+        @test parent(W[AN.Chan(AN.At(c))]) ≈ k .* parent(w)
+    end
+end
+
 @testset "fitdiagonalgaussian" begin
     x = range(-1, 1, length = 41)
     y = range(0, 2, length = 31)
