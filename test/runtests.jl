@@ -32,6 +32,11 @@ function syntheticlfp(; fs = 1250.0, rng = MersenneTwister(1))
     AN.ToolsArray(x, (AN.𝑡(ts),); refdims = (AN.Chan(1),))
 end
 
+function rhythm(f; fs = 1250.0, T = 20.0) # a pure sine
+    ts = 0:(1 / fs):(T - 1 / fs)
+    AN.ToolsArray(sin.(2π * f .* ts), (AN.𝑡(ts),))
+end
+
 injectedbursts(B) = filter(b -> any(t0 -> abs(AN.peaktime(b) - t0) < 0.1, BURSTTIMES), B)
 
 @testset "detectbursts finds injected gamma bursts" begin
@@ -89,6 +94,37 @@ end
     end
 end
 
+@testset "powerspectra peaks at the rhythm" begin
+    x = rhythm(40.0)
+    psd = AN.powerspectra(x; n = 2500)
+    @test only(AN.dims(psd)) isa AN.𝑓
+    @test AN.lookup(psd, AN.𝑓)[argmax(parent(psd))] ≈ 40 atol = 0.5
+    X = AN.ToolsArray(hcat(parent(x), parent(rhythm(80.0))), (AN.dims(x, AN.𝑡), AN.Chan([7, 9])))
+    P = AN.powerspectra(X; n = 2500)
+    @test AN.lookup(P, AN.Chan) == [7, 9]
+    @test AN.lookup(P, AN.𝑓)[argmax(parent(P)[:, 2])] ≈ 80 atol = 0.5
+end
+
+@testset "aperiodicfit recovers a power law" begin
+    f = 1.0:0.5:300.0
+    psd = AN.ToolsArray(f .^ -2, (AN.𝑓(f),))
+    _, p = AN.aperiodicfit(psd, [2.0, 200.0]; aperiodic_mode = "fixed")
+    @test p[:χ] ≈ 2 atol = 0.05
+    L, _ = AN.aperiodicfit(psd, [2.0, 200.0])
+    @test L(10.0) ≈ 10.0^-2 rtol = 0.1
+end
+
+@testset "phaselockingindex separates locked from random spikes" begin
+    x = rhythm(10.0)
+    γ, p = AN.phaselockingindex(x, collect(0.025:0.1:19.9)) # at every peak
+    @test γ > 0.95
+    @test p < 1e-6
+    γ, p = AN.phaselockingindex(x, sort(0.1 .+ 19.8 .* rand(MersenneTwister(2), 200)))
+    @test abs(γ) < 0.05
+    @test p > 0.01
+    @test AN.pairwisephaseconsistency(fill(1.3, 50)) ≈ 1
+end
+
 @testset "fitdiagonalgaussian" begin
     x = range(-1, 1, length = 41)
     y = range(0, 2, length = 31)
@@ -110,6 +146,14 @@ end
     @test length(AN.bandfilter(B; pass = [50, 70])) == 3
     @test isempty(AN.bandfilter(B; pass = [100, 150]))
     @test length(B) == 3 # bandfilter copies
+end
+
+@testset "IAAFT surrogates keep the time axis and amplitudes" begin
+    x = syntheticlfp()
+    s = AN.TimeseriesSurrogates.surrogate(x, AN.TimeseriesSurrogates.IAAFT())
+    @test AN.dims(s) == AN.dims(x)
+    @test sort(parent(s)) ≈ sort(parent(x))
+    @test parent(s) != parent(x)
 end
 
 using CairoMakie # loads AllenNeuropixels.Plots
